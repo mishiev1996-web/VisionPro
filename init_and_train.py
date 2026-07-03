@@ -12,8 +12,8 @@ print("  DB ready.")
 
 # 2. Collect data (quick: current season only)
 print("\n[2/3] Collecting data (current season)...")
-import data_collector
 try:
+    import data_collector
     result = data_collector.collect_all(
         seasons=[2024, 2025],
         progress_cb=lambda e: print(f"  {e.get('msg','')}")

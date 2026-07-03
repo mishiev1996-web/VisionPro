@@ -21,10 +21,13 @@ from . import espn           # primary live/worldwide source — comprehensive c
 from . import historical_odds  # bookmaker odds (football-data.co.uk)
 from . import sstats            # sstats.net Football API (Glicko, multi-bookmaker odds, text summaries)
 from . import web             # Jina Reader + DuckDuckGo universal web scraper
-from . import fbref           # FBref xG data for 25+ leagues
+try:
+    from . import fbref           # FBref xG data for 25+ leagues (needs playwright)
+except ImportError:
+    fbref = None
 
 __all__ = [
     "LEAGUES", "fetch_understat_league", "fetch_all_leagues", "UNDERSTAT_BASE",
     "clubelo", "openmeteo", "transfermarkt", "flashscore", "thesportsdb", "espn",
-    "historical_odds", "web", "fbref",
+    "historical_odds", "web",
 ]
