@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>FootballAI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080d;--surface:#0d1117;--card:#161b22;
+  --border:#21262d;--text:#f0f3f6;--text2:#8b949e;--text3:#484f58;
+  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#eab308;--violet:#8b5cf6;
+  --r:14px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;padding-bottom:80px;-webkit-tap-highlight-color:transparent}
+
+/* Header */
+.hdr{text-align:center;padding:8px 0 12px}
+.hdr h1{font-size:20px;font-weight:900;letter-spacing:-.02em}
+.hdr h1 span{color:var(--cyan)}
+.hdr p{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.5px}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab{flex:1;padding:10px 0;border:none;border-radius:10px;background:var(--card);color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
+.tab.on{background:rgba(6,182,212,.15);color:var(--cyan)}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card-t{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);font-weight:800;margin-bottom:10px}
+
+/* Input */
+.inp{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.inp:focus{border-color:var(--cyan)}
+.inp::placeholder{color:var(--text3)}
+.fgrp{margin-bottom:10px}
+.fgrp label{display:block;font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+
+/* Button */
+.btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--cyan),#3b82f6);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+
+/* Match card */
+.mc{padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.mc:last-child{border-bottom:none}
+.mc:active{background:rgba(6,182,212,.05)}
+.mc-top{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:6px}
+.mc-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;font-size:13px}
+.mc-home{text-align:right;font-weight:700}
+.mc-away{font-weight:700}
+.mc-vs{text-align:center;font-family:monospace;font-weight:800;background:var(--surface);padding:4px 10px;border-radius:8px;font-size:11px;border:1px solid var(--border);min-width:50px}
+.mc-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:8px;gap:1px}
+.mc-bar div{transition:width .3s}
+.mc-bar .h{background:var(--green)}.mc-bar .d{background:var(--amber)}.mc-bar .a{background:var(--red)}
+.mc-pct{display:flex;justify-content:space-between;font-size:10px;font-family:monospace;font-weight:600;margin-top:4px}
+.mc-pct .h{color:var(--green)}.mc-pct .d{color:var(--amber)}.mc-pct .a{color:var(--red)}
+.mc-tags{display:flex;gap:4px;margin-top:6px}
+.tag{font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.tag-over{background:rgba(139,92,246,.12);color:var(--violet)}
+.tag-btts{background:rgba(6,182,212,.12);color:var(--cyan)}
+.tag-conf{background:rgba(34,197,94,.12);color:var(--green)}
+
+/* League filter */
+.leagues{display:flex;gap:4px;overflow-x:auto;padding:2px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.leagues::-webkit-scrollbar{display:none}
+.lg{white-space:nowrap;padding:6px 10px;border-radius:16px;font-size:10px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text3);cursor:pointer;flex-shrink:0}
+.lg.on{background:rgba(6,182,212,.12);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+
+/* Result modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.modal-body{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-height:80vh;overflow-y:auto;padding:16px 14px 32px;animation:su .25s}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-h{width:28px;height:3px;background:var(--border);border-radius:2px;margin:0 auto 12px}
+
+/* Prob display */
+.prob-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:12px 0}
+.prob-item{text-align:center;padding:12px 4px;border-radius:10px;background:var(--card)}
+.prob-item .lbl{font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700}
+.prob-item .val{font-size:24px;font-weight:900;font-family:monospace;margin-top:2px}
+.prob-item.best{border:2px solid var(--cyan)}
+
+/* Analysis */
+.ai-text{font-size:12px;line-height:1.7;color:var(--text2);white-space:pre-wrap;margin-top:10px}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:sp .6s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Standings */
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{color:var(--text3);font-size:8px;font-weight:700;text-transform:uppercase;padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:6px 4px;border-bottom:1px solid var(--border)}
+.n{font-family:monospace;text-align:right}
+.pos{font-family:monospace;font-weight:700;text-align:center;width:24px;color:var(--text3)}
+
+/* Stats row */
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.stat{text-align:center;padding:10px 4px;border-radius:10px;background:var(--card)}
+.stat .v{font-size:18px;font-weight:900;font-family:monospace;color:var(--cyan)}
+.stat .l{font-size:8px;color:var(--text3);text-transform:uppercase;margin-top:2px;font-weight:700}
+
+/* Sections */
+.sec{display:none}.sec.on{display:block}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>Football<span>AI</span></h1>
+  <p>xG · Elo · ML ensemble · 75+ лиг</p>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="show('matches')">Матчи</button>
+  <button class="tab" onclick="show('predict')">Прогноз</button>
+  <button class="tab" onclick="show('tables')">Таблицы</button>
+</div>
+
+<!-- ═══ MATCHES ═══ -->
+<div class="sec on" id="s-matches">
+  <div class="stats">
+    <div class="stat"><div class="v" id="st-m">-</div><div class="l">Матчей</div></div>
+    <div class="stat"><div class="v" id="st-l">-</div><div class="l">Лиг</div></div>
+    <div class="stat"><div class="v" id="st-a">-</div><div class="l">Точность</div></div>
+  </div>
+  <div class="leagues" id="lg-chips"></div>
+  <div class="card" id="match-list"><div style="text-align:center;padding:20px;color:var(--text3)"><div class="spinner"></div><div style="margin-top:8px">Загрузка...</div></div></div>
+</div>
+
+<!-- ═══ PREDICT ═══ -->
+<div class="sec" id="s-predict">
+  <div class="card">
+    <div class="card-t">AI Прогноз матча</div>
+    <div class="fgrp"><label>Хозяева</label><input class="inp" id="p-home" placeholder="Arsenal" autocomplete="off"></div>
+    <div class="fgrp"><label>Гости</label><input class="inp" id="p-away" placeholder="Chelsea" autocomplete="off"></div>
+    <button class="btn" id="p-btn" disabled onclick="predict()">Получить прогноз</button>
+  </div>
+  <div class="card" id="p-loading" style="display:none"><div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div><span style="font-size:12px;color:var(--text2)" id="p-msg">Анализирую...</span></div></div>
+  <div id="p-result"></div>
+</div>
+
+<!-- ═══ TABLES ═══ -->
+<div class="sec" id="s-tables">
+  <div class="leagues" id="t-chips"></div>
+  <div class="card" id="table-body"><div style="text-align:center;padding:20px;color:var(--text3)">Выберите лигу</div></div>
+</div>
+
+<!-- ═══ MODAL ═══ -->
+<div class="modal" id="modal" onclick="closeModal()">
+  <div class="modal-body" onclick="event.stopPropagation()">
+    <div class="modal-h"></div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+const TG = window.Telegram?.WebApp;
+if(TG){TG.ready();TG.expand();document.body.style.paddingTop=(TG.safeAreaInsetTop||0)+'px'}
+
+// ── Theme ──
+if(TG?.themeParams){
+  const t=TG.themeParams;
+  if(t.bg_color)document.documentElement.style.setProperty('--bg',t.bg_color);
+  if(t.secondary_bg_color)document.documentElement.style.setProperty('--surface',t.secondary_bg_color);
+  if(t.text_color)document.documentElement.style.setProperty('--text',t.text_color);
+  if(t.hint_color)document.documentElement.style.setProperty('--text3',t.hint_color);
+  if(t.accent_text_color)document.documentElement.style.setProperty('--cyan',t.accent_text_color);
+  if(t.button_color)document.documentElement.style.setProperty('--card',t.button_color);
+}
+
+// ── Tab switching ──
+let curTab='matches';
+function show(name){
+  curTab=name;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['matches','predict','tables'][i]===name));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.getElementById('s-'+name).classList.add('on');
+  if(name==='matches')loadMatches();
+  if(name==='tables')loadTables();
+}
+
+// ── Data ──
+let allMatches=[],allLeagues=new Set(),selLg='all';
+const API=location.origin;
+
+async function loadMatches(){
+  try{
+    const r=await fetch(API+'/api/upcoming');
+    const data=await r.json();
+    allMatches=data.matches||data||[];
+    allLeagues.clear();
+    allMatches.forEach(m=>allLeagues.add(m.league_slug));
+    document.getElementById('st-m').textContent=allMatches.length;
+    document.getElementById('st-l').textContent=allLeagues.size;
+    renderChips();
+    renderMatches();
+  }catch(e){
+    document.getElementById('match-list').innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Нет данных. Запустите сервер.</div>';
+  }
+}
+
+function renderChips(){
+  const c=document.getElementById('lg-chips');
+  c.innerHTML='<div class="lg on" onclick="filterLg(\'all\')">Все</div>';
+  [...allLeagues].sort().forEach(lg=>{
+    c.innerHTML+=`<div class="lg" onclick="filterLg('${lg}')">${lg.replace(/_/g,' ')}</div>`;
+  });
+}
+
+function filterLg(lg){
+  selLg=lg;
+  document.querySelectorAll('#lg-chips .lg').forEach(c=>c.textContent.replace(/ /g,'_')===lg||c.textContent==='Все'&&lg==='all'?c.classList.add('on'):c.classList.remove('on'));
+  renderMatches();
+}
+
+function renderMatches(){
+  const f=selLg==='all'?allMatches:allMatches.filter(m=>m.league_slug===selLg);
+  if(!f.length){document.getElementById('match-list').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Нет матчей</div>';return}
+  document.getElementById('match-list').innerHTML=f.map((m,i)=>{
+    const hw=m.prediction?.home_win||m.prob_home||0,dr=m.prediction?.draw||m.prob_draw||0,aw=m.prediction?.away_win||m.prob_away||0;
+    const tot=hw+dr+aw||1;
+    const hp=(hw/tot*100).toFixed(0),dp=(dr/tot*100).toFixed(0),ap=(aw/tot*100).toFixed(0);
+    const best=Math.max(hw,dr,aw);
+    const totalG=(m.expected_home||1.3)+(m.expected_away||1.1);
+    return `<div class="mc" onclick="openDetail(${i})">
+      <div class="mc-top"><span>${(m.league_slug||'').replace(/_/g,' ')}</span><span>${(m.date||'').slice(0,10)}</span></div>
+      <div class="mc-teams"><div class="mc-home">${m.home_name||'?'}</div><div class="mc-vs">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div><div class="mc-away">${m.away_name||'?'}</div></div>
+      <div class="mc-bar"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>
+      <div class="mc-pct"><span class="h">${hp}%</span><span class="d">${dp}%</span><span class="a">${ap}%</span></div>
+      <div class="mc-tags">${best>55?'<span class="tag tag-conf">Уверенный</span>':''}${totalG>2.5?'<span class="tag tag-over">Over 2.5</span>':''}${hw/dr>1.3||aw/dr>1.3?'<span class="tag tag-btts">BTTS</span>':''}</div>
+    </div>`;
+  }).join('');
+}
+
+function openDetail(i){
+  const m=allMatches[i];if(!m)return;
+  const hw=m.prediction?.home_win||0,dr=m.prediction?.draw||0,aw=m.prediction?.away_win||0;
+  const tot=hw+dr+aw||1;
+  const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
+  const best=Math.max(hw,dr,aw);const bc=hw===best?'h':dr===best?'d':'a';
+
+  document.getElementById('modal-content').innerHTML=`
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${(m.league_slug||'').replace(/_/g,' ')}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px">${(m.date||'').slice(0,16)}</div>
+    </div>
+    <div class="mc-teams" style="margin:12px 0;font-size:15px">
+      <div class="mc-home">${m.home_name||'?'}</div>
+      <div class="mc-vs" style="font-size:14px;padding:6px 14px">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div>
+      <div class="mc-away">${m.away_name||'?'}</div>
+    </div>
+    <div class="prob-grid">
+      <div class="prob-item ${bc==='h'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
+      <div class="prob-item ${bc==='d'?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
+      <div class="prob-item ${bc==='a'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
+    </div>
+    <button class="btn" style="margin-top:8px" onclick="closeModal();goPredict('${(m.home_name||'').replace(/'/g,"\\'")}','${(m.away_name||'').replace(/'/g,"\\'")}')">AI Анализ</button>`;
+  document.getElementById('modal').classList.add('open');
+  if(TG?.HapticFeedback)TG.HapticFeedback.impactOccurred('light');
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+
+function goPredict(h,a){show('predict');document.getElementById('p-home').value=h;document.getElementById('p-away').value=a;document.getElementById('p-btn').disabled=false}
+
+// ── Predict ──
+const ph=document.getElementById('p-home'),pa=document.getElementById('p-away');
+ph.addEventListener('input',()=>document.getElementById('p-btn').disabled=!(ph.value&&pa.value));
+pa.addEventListener('input',()=>document.getElementById('p-btn').disabled=!(ph.value&&pa.value));
+
+async function predict(){
+  const h=ph.value.trim(),a=pa.value.trim();if(!h||!a)return;
+  document.getElementById('p-loading').style.display='block';
+  document.getElementById('p-result').innerHTML='';
+  document.getElementById('p-btn').disabled=true;
+
+  try{
+    const r=await fetch(API+'/api/ai/search-and-predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({home_name:h,away_name:a})});
+    const data=await r.json();
+    showResult(data);
+    if(TG?.HapticFeedback)TG.HapticFeedback.notificationOccurred('success');
+  }catch(e){
+    document.getElementById('p-result').innerHTML=`<div class="card" style="color:var(--red);text-align:center">Ошибка: ${e.message}</div>`;
+  }
+  document.getElementById('p-loading').style.display='none';
+  document.getElementById('p-btn').disabled=false;
+}
+
+function showResult(data){
+  const pred=data.prediction;if(!pred||!pred.probabilities){document.getElementById('p-result').innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Прогноз недоступен</div>';return}
+  const p=pred.probabilities;
+  const hw=p.home_win||0,dr=p.draw||0,aw=p.away_win||0,tot=hw+dr+aw||1;
+  const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
+  const best=Math.max(hw,dr,aw);const bc=hw===best?'h':dr===best?'d':'a';
+  const hn=data.home?.name||ph.value,an=data.away?.name||pa.value;
+
+  let html=`<div class="card">
+    <div class="card-t">${hn} vs ${an}</div>
+    <div class="prob-grid">
+      <div class="prob-item ${bc==='h'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
+      <div class="prob-item ${bc==='d'?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
+      <div class="prob-item ${bc==='a'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
+    </div>
+    <div class="mc-bar" style="height:8px;margin:8px 0"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>`;
+
+  if(data.analysis){html+=`<div class="ai-text">${esc(data.analysis)}</div>`}
+  html+=`</div>`;
+  document.getElementById('p-result').innerHTML=html;
+
+  // Send result to Telegram bot
+  if(TG&&TG.initDataUnsafe?.user){
+    try{TG.sendData(JSON.stringify({home:hn,away:an,probabilities:{home_win:parseFloat(hp),draw:parseFloat(dp),away_win:parseFloat(ap)},analysis:(data.analysis||'').slice(0,500)}))}catch(e){}
+  }
+}
+
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+// ── Tables ──
+const LEAGUES=['EPL','La_liga','Bundesliga','Serie_A','Ligue_1','RFPL','Eredivisie','Primeira_Liga','Super_Lig','Championship'];
+let selTbl='EPL';
+
+function loadTables(){
+  document.getElementById('t-chips').innerHTML=LEAGUES.map(l=>
+    `<div class="lg ${l===selTbl?'on':''}" onclick="loadTable('${l}')">${l.replace(/_/g,' ')}</div>`
+  ).join('');
+  loadTable(selTbl);
+}
+
+async function loadTable(lg){
+  selTbl=lg;
+  document.querySelectorAll('#t-chips .lg').forEach(c=>c.classList.toggle('on',c.textContent.replace(/ /g,'_')===lg));
+  document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px"><div class="spinner"></div></div>';
+  try{
+    const r=await fetch(API+`/api/standings?league=${lg}`);
+    const data=await r.json();
+    const rows=data.standings||data||[];
+    if(!rows.length){document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Нет данных</div>';return}
+    document.getElementById('table-body').innerHTML=`<table><thead><tr><th class="pos">#</th><th>Команда</th><th class="n">О</th></tr></thead><tbody>${
+      rows.map((t,i)=>`<tr${i<3?' style="color:var(--green)"':i>=rows.length-3?' style="color:var(--red)"':''}><td class="pos">${i+1}</td><td style="font-weight:600">${t.name||t.team||'?'}</td><td class="n" style="font-weight:800">${t.points||0}</td></tr>`).join('')
+    }</tbody></table>`;
+  }catch(e){document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Ошибка загрузки</div>'}
+}
+
+// ── Init ──
+loadMatches();
+</script>
+</body>
+</html>

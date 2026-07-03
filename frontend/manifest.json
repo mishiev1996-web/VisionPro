@@ -1,0 +1,24 @@
+{
+  "name": "Football AI Predictor — xG Analytics & ML Forecasts",
+  "short_name": "Football AI",
+  "description": "AI-powered football match predictions with xG analysis and ML ensemble",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#06b6d4",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

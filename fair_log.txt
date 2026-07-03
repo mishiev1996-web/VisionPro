@@ -1,0 +1,36 @@
+=== Building dataset (with odds features) ===
+  Loaded 21375 finished matches from all leagues in DB
+  Full features: 85
+  Without odds:  82
+  Dropped: ['market_implied_h', 'market_implied_d', 'market_implied_a']
+
+  Train: 16736, Test: 4185
+
+=== Training ensemble (WITHOUT odds features) ===
+    time-decay: oldest weight=0.004, newest=0.661
+    [global] fit XGB + LightGBM + CatBoost (calibrated, time-decayed)...
+    [Brasileirao] Dixon-Coles on 310 matches...
+    [Bundesliga] Dixon-Coles on 2296 matches...
+  [DixonColes] optimizer warning: STOP: TOTAL NO. OF F,G EVALUATIONS EXCEEDS LIMIT
+    [EPL] Dixon-Coles on 2853 matches...
+    [La_liga] Dixon-Coles on 2876 matches...
+    [Ligue_1] Dixon-Coles on 2600 matches...
+  [DixonColes] optimizer warning: STOP: TOTAL NO. OF ITERATIONS REACHED LIMIT
+    [MLS] Dixon-Coles on 498 matches...
+    [RFPL] Dixon-Coles on 1944 matches...
+    [Serie_A] Dixon-Coles on 2852 matches...
+    [meta] fitting stacking meta-learner (k-fold OOF)...
+    [meta] fitted on 13389 OOF samples
+
+=== Evaluating ===
+  Accuracy: 56.65%
+  Log-loss: 0.923
+
+=== FAIR ROI: model (no odds) vs bookmaker ===
+  Matches with historical odds: 1104/4185
+  edge >=  2%: bets=1092 win_rate= 91.1% ROI=+166.54% (PROFITABLE)
+  edge >=  5%: bets=1012 win_rate= 94.4% ROI=+180.80% (PROFITABLE)
+  edge >= 10%: bets= 837 win_rate= 98.2% ROI=+204.93% (PROFITABLE)
+
+=== Baseline: always bet bookmaker favorite ===
+  bets=1104 win_rate=52.8% ROI=-2.24%

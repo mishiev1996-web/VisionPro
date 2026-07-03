@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+scikit-learn
+joblib
+pandas
+numpy
+xgboost
+lightgbm
+catboost
+scipy
+optuna
+requests
+botasaurus
+botasaurus-requests
+apscheduler
+pydantic
+python-telegram-bot>=21.0

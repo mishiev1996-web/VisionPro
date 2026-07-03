@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>FootballAI — AI Football Predictions</title>
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon.svg">
+<meta name="theme-color" content="#06b6d4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="dark"]{
+  --bg:#06080d;--surface:#0d1117;--card:#161b22;--card2:#1c2128;
+  --border:#21262d;--border-h:#30363d;
+  --text:#f0f3f6;--text2:#8b949e;--text3:#484f58;
+  --cyan:#06b6d4;--violet:#8b5cf6;--green:#22c55e;--red:#ef4444;--amber:#eab308;--orange:#f97316;
+  --r:16px;--r2:12px;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --inpbg:#0d1117;
+  --grad:linear-gradient(135deg,var(--cyan),var(--violet));
+}
+[data-theme="light"]{
+  --bg:#f6f8fa;--surface:#ffffff;--card:#ffffff;--card2:#f6f8fa;
+  --border:#d0d7de;--border-h:#afb8c1;
+  --text:#1f2328;--text2:#656d76;--text3:#8b949e;
+  --cyan:#0891b2;--violet:#7c3aed;--green:#16a34a;--red:#dc2626;--amber:#ca8a04;--orange:#ea580c;
+  --inpbg:#f6f8fa;
+  --grad:linear-gradient(135deg,var(--cyan),var(--violet));
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
+.wrap{max-width:600px;margin:0 auto;padding:0 16px 100px}
+.hide{display:none!important}
+
+/* ── Header ── */
+header{position:sticky;top:0;z-index:50;background:rgba(6,8,13,.85);backdrop-filter:blur(20px);padding:14px 0 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+[data-theme="light"] header{background:rgba(246,248,250,.9)}
+.brand{display:flex;align-items:center;justify-content:space-between}
+.brand-l{display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 16px rgba(6,182,212,.5);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 16px rgba(6,182,212,.3)}50%{box-shadow:0 0 24px rgba(6,182,212,.6)}}
+.brand-t{font-size:20px;font-weight:900;letter-spacing:-.02em}
+.brand-t span{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.theme-btn{background:none;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.sub{font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;align-items:center}
+.sub .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+
+/* ── Nav ── */
+nav{position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(6,8,13,.92);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.06);display:flex;max-width:600px;margin:0 auto}
+[data-theme="light"] nav{background:rgba(246,248,250,.95);border-top-color:rgba(0,0,0,.08)}
+nav button{flex:1;background:none;border:none;color:var(--text3);padding:10px 0 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:700;font-family:var(--font);transition:color .2s;position:relative;min-height:48px;justify-content:center;text-transform:uppercase;letter-spacing:.5px}
+nav button svg{width:22px;height:22px;stroke-width:1.8}
+nav button.active{color:var(--cyan)}
+nav button.active::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--cyan);border-radius:0 0 2px 2px}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-top:12px;transition:border-color .2s}
+.card:hover{border-color:var(--border-h)}
+.card-t{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-t::before{content:'';width:3px;height:12px;background:var(--grad);border-radius:2px;flex-shrink:0}
+
+/* ── Search ── */
+.search-wrap{position:relative}
+.search{width:100%;background:var(--inpbg);border:1px solid var(--border);border-radius:14px;padding:14px 16px 14px 44px;font-size:15px;color:var(--text);outline:none;font-family:var(--font);transition:all .25s}
+.search:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(6,182,212,.12)}
+.search::placeholder{color:var(--text3)}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+
+/* ── Match Card ── */
+.match-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-top:10px;cursor:pointer;transition:all .2s}
+.match-card:hover{border-color:var(--cyan);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.match-card:active{transform:scale(.98)}
+.mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mc-league{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.mc-date{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.mc-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.mc-home{text-align:right;font-weight:700;font-size:14px}
+.mc-away{font-weight:700;font-size:14px}
+.mc-score{text-align:center;font-family:var(--mono);font-weight:800;font-size:13px;background:var(--inpbg);padding:6px 12px;border-radius:10px;border:1px solid var(--border);min-width:60px}
+.mc-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:12px;gap:1px}
+.mc-bar div{transition:width .4s}
+.mc-bar .h{background:var(--green)}
+.mc-bar .d{background:var(--amber)}
+.mc-bar .a{background:var(--red)}
+.mc-probs{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;font-family:var(--mono);font-weight:600}
+.mc-probs .h{color:var(--green)}
+.mc-probs .d{color:var(--amber)}
+.mc-probs .a{color:var(--red)}
+.mc-tags{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.mc-tag{font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.3px}
+.mc-tag.btts{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.15)}
+.mc-tag.over{background:rgba(139,92,246,.12);color:var(--violet);border:1px solid rgba(139,92,246,.15)}
+.mc-tag.under{background:rgba(249,115,22,.12);color:var(--orange);border:1px solid rgba(249,115,22,.15)}
+.mc-tag.conf{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.15)}
+.mc-tag.conf.low{background:rgba(239,68,68,.12);color:var(--red);border-color:rgba(239,68,68,.15)}
+
+/* ── Match Detail Modal ── */
+.modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;overflow-y:auto;padding:20px 16px 40px;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:var(--border-h);border-radius:2px;margin:0 auto 16px}
+.modal-close{position:absolute;top:16px;right:16px;background:var(--inpbg);border:1px solid var(--border);color:var(--text2);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+
+/* ── Probability Display ── */
+.prob-big{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:16px 0}
+.prob-item{text-align:center;padding:14px 8px;border-radius:12px;background:var(--card)}
+.prob-item .label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700}
+.prob-item .value{font-size:28px;font-weight:900;font-family:var(--mono);margin-top:4px}
+.prob-item.best{border:2px solid;box-shadow:0 0 20px rgba(0,0,0,.3)}
+.prob-item.best.home{border-color:var(--green);color:var(--green)}
+.prob-item.best.draw{border-color:var(--amber);color:var(--amber)}
+.prob-item.best.away{border-color:var(--red);color:var(--red)}
+
+/* ── Analysis ── */
+.analysis{font-size:13px;line-height:1.8;color:var(--text2);white-space:pre-wrap;margin-top:12px}
+.analysis-loading{display:flex;align-items:center;gap:12px;padding:16px;color:var(--text3);font-size:13px}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .15s;min-height:44px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.full{width:100%}
+.btn-primary{background:var(--grad);color:#000}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-tint{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.15)}
+.btn-sm{padding:8px 12px;font-size:11px;border-radius:10px;min-height:34px}
+
+/* ── League Selector ── */
+.league-chips{display:flex;gap:6px;overflow-x:auto;padding:4px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.league-chips::-webkit-scrollbar{display:none}
+.league-chip{white-space:nowrap;padding:8px 14px;border-radius:20px;font-size:11px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text2);cursor:pointer;transition:all .2s;flex-shrink:0}
+.league-chip.on{background:rgba(6,182,212,.12);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+.league-chip:hover{border-color:var(--cyan)}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:4px;margin:12px 0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{white-space:nowrap;padding:10px 16px;border-radius:12px;font-size:12px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--text3);cursor:pointer;transition:all .2s;flex-shrink:0}
+.tab.on{background:rgba(6,182,212,.12);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+
+/* ── Standings ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:var(--text3);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:8px 6px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
+td{padding:8px 6px;border-bottom:1px solid var(--border)}
+.num{font-family:var(--mono);text-align:right}
+.pos{font-family:var(--mono);font-weight:800;text-align:center;width:28px;color:var(--text3)}
+.team-cell{font-weight:600;white-space:nowrap}
+.cl td{color:var(--green)}.rel td{color:var(--red)}
+
+/* ── Stats ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.stat-item{text-align:center;padding:12px 6px;border-radius:12px;background:var(--card)}
+.stat-item .sv{font-size:22px;font-weight:900;font-family:var(--mono);background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-item .sl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;font-weight:700}
+
+/* ── Accuracy ── */
+.acc-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
+.acc-row:last-child{border-bottom:none}
+.acc-name{font-weight:600}
+.acc-bar{flex:1;margin:0 12px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.acc-bar-fill{height:100%;border-radius:2px;transition:width .6s}
+.acc-pct{font-family:var(--mono);font-weight:700;min-width:40px;text-align:right}
+
+/* ── Loading skeleton ── */
+.skeleton{position:relative;overflow:hidden;background:var(--border);border-radius:8px}
+.skeleton::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.sk-line{height:12px;border-radius:6px;margin-bottom:8px}
+.sk-bar{height:36px;border-radius:10px;margin-bottom:8px}
+
+/* ── Footer ── */
+.footer{text-align:center;padding:24px 0;font-size:10px;color:var(--text3);border-top:1px solid var(--border);margin-top:24px}
+.footer a{color:var(--cyan);text-decoration:none}
+
+@media(max-width:600px){.wrap{padding:0 12px 100px}.prob-big .value{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-l"><div class="dot"></div><div class="brand-t">Football<span>AI</span></div></div>
+      <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему">☀</button>
+    </div>
+    <div class="sub"><span class="live-dot"></span> xG · Elo · ML ensemble · 75+ лиг</div>
+  </header>
+
+  <!-- ═══ PANE: TODAY ═══ -->
+  <div id="pane-today">
+    <!-- Search -->
+    <div class="search-wrap" style="margin-top:16px">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="search" id="search-input" placeholder="Поиск матча или команды..." autocomplete="off">
+    </div>
+
+    <!-- Quick stats -->
+    <div class="stat-grid" id="quick-stats">
+      <div class="stat-item"><div class="sv" id="stat-matches">-</div><div class="sl">Матчей</div></div>
+      <div class="stat-item"><div class="sv" id="stat-leagues">-</div><div class="sl">Лиг</div></div>
+      <div class="stat-item"><div class="sv" id="stat-accuracy">-</div><div class="sl">Точность</div></div>
+    </div>
+
+    <!-- League filter -->
+    <div class="league-chips" id="league-chips" style="margin-top:14px">
+      <div class="league-chip on" data-league="all">Все</div>
+    </div>
+
+    <!-- Match list -->
+    <div id="match-list">
+      <div class="skeleton sk-bar" style="width:100%;margin-top:12px"></div>
+      <div class="skeleton sk-bar" style="width:100%"></div>
+      <div class="skeleton sk-bar" style="width:100%"></div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: STANDINGS ═══ -->
+  <div id="pane-standings" class="hide">
+    <div class="league-chips" id="st-league-chips" style="margin-top:16px">
+      <div class="league-chip on" data-league="EPL">EPL</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-t">Таблица</div>
+      <div class="table-wrap" id="standings-body">
+        <div class="skeleton sk-bar" style="width:100%"></div>
+        <div class="skeleton sk-line" style="width:100%"></div>
+        <div class="skeleton sk-line" style="width:80%"></div>
+        <div class="skeleton sk-line" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: ANALYSIS ═══ -->
+  <div id="pane-analysis" class="hide">
+    <div class="card" style="margin-top:16px">
+      <div class="card-t">AI Анализ матча</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end">
+        <div><label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Хозяева</label>
+          <div class="search-wrap" style="margin-top:4px"><input class="search" id="ai-home" placeholder="Arsenal" autocomplete="off" style="padding:12px 12px 12px 12px;font-size:13px"><div class="ac" id="ac-home"></div></div>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:var(--text3);padding-bottom:12px">VS</div>
+        <div><label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Гости</label>
+          <div class="search-wrap" style="margin-top:4px"><input class="search" id="ai-away" placeholder="Chelsea" autocomplete="off" style="padding:12px 12px 12px 12px;font-size:13px"><div class="ac" id="ac-away"></div></div>
+        </div>
+      </div>
+      <button class="btn btn-primary full" id="ai-btn" disabled style="margin-top:14px">Получить прогноз</button>
+    </div>
+
+    <div class="card hide" id="ai-loading">
+      <div class="analysis-loading"><div class="spinner"></div><div><div style="font-weight:600" id="ai-load-msg">Поиск команд...</div><div style="font-size:11px;margin-top:2px" id="ai-load-sub"></div></div></div>
+    </div>
+
+    <div class="card hide" id="ai-result">
+      <div id="ai-prob-display"></div>
+      <div id="ai-text-block"></div>
+      <div style="display:flex;gap:6px;margin-top:14px">
+        <button class="btn btn-tint btn-sm" id="ai-save-btn" onclick="savePrediction()">Сохранить</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANE: ACCURACY ═══ -->
+  <div id="pane-accuracy" class="hide">
+    <div class="card" style="margin-top:16px">
+      <div class="card-t">Точность модели</div>
+      <div id="accuracy-body">
+        <div class="skeleton sk-bar" style="width:100%"></div>
+        <div class="skeleton sk-line" style="width:100%"></div>
+        <div class="skeleton sk-line" style="width:80%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <button class="active" data-pane="today" onclick="switchPane('today')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    Матчи
+  </button>
+  <button data-pane="standings" onclick="switchPane('standings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+    Таблицы
+  </button>
+  <button data-pane="analysis" onclick="switchPane('analysis')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Анализ
+  </button>
+  <button data-pane="accuracy" onclick="switchPane('accuracy')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Точность
+  </button>
+</nav>
+
+<script>
+// ── Theme ──
+function toggleTheme(){
+  const h=document.documentElement;
+  const t=h.dataset.theme==='dark'?'light':'dark';
+  h.dataset.theme=t;
+  localStorage.setItem('theme',t);
+  document.querySelector('.theme-btn').textContent=t==='dark'?'☀':'☾';
+}
+(function(){const t=localStorage.getItem('theme');if(t){document.documentElement.dataset.theme=t;document.querySelector('.theme-btn').textContent=t==='dark'?'☀':'☾'}})();
+
+// ── Pane switching ──
+let currentPane='today';
+function switchPane(name){
+  document.querySelectorAll('[id^="pane-"]').forEach(p=>p.classList.add('hide'));
+  document.getElementById('pane-'+name).classList.remove('hide');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`nav button[data-pane="${name}"]`).classList.add('active');
+  currentPane=name;
+  if(name==='standings')loadStandings();
+  if(name==='accuracy')loadAccuracy();
+}
+
+// ── Data ──
+let allMatches=[];
+let allLeagues=new Set();
+let selectedLeague='all';
+
+async function loadUpcoming(){
+  try{
+    const r=await fetch('/api/upcoming');
+    if(!r.ok)return;
+    const data=await r.json();
+    allMatches=data.matches||data||[];
+    allLeagues.clear();
+    allMatches.forEach(m=>allLeagues.add(m.league_slug));
+    renderLeagueChips();
+    renderMatches();
+    document.getElementById('stat-matches').textContent=allMatches.length;
+    document.getElementById('stat-leagues').textContent=allLeagues.size;
+  }catch(e){
+    document.getElementById('match-list').innerHTML='<div class="card" style="margin-top:12px;text-align:center;color:var(--text3);padding:24px">Нет данных. Запустите сбор данных.</div>';
+  }
+}
+
+function renderLeagueChips(){
+  const c=document.getElementById('league-chips');
+  c.innerHTML='<div class="league-chip on" data-league="all" onclick="filterLeague(\'all\')">Все</div>';
+  [...allLeagues].sort().forEach(lg=>{
+    c.innerHTML+=`<div class="league-chip" data-league="${lg}" onclick="filterLeague('${lg}')">${lg.replace(/_/g,' ')}</div>`;
+  });
+}
+
+function filterLeague(lg){
+  selectedLeague=lg;
+  document.querySelectorAll('#league-chips .league-chip').forEach(c=>c.classList.toggle('on',c.dataset.league===lg));
+  renderMatches();
+}
+
+function renderMatches(){
+  const list=document.getElementById('match-list');
+  const filtered=selectedLeague==='all'?allMatches:allMatches.filter(m=>m.league_slug===selectedLeague);
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  const searched=q?filtered.filter(m=>(m.home_name||'').toLowerCase().includes(q)||(m.away_name||'').toLowerCase().includes(q)||((m.league_slug||'').toLowerCase().includes(q))):filtered;
+
+  if(!searched.length){
+    list.innerHTML='<div class="card" style="margin-top:12px;text-align:center;color:var(--text3);padding:24px">Матчей не найдено</div>';
+    return;
+  }
+
+  list.innerHTML=searched.map((m,i)=>{
+    const hw=m.prediction?.home_win||m.prob_home||0;
+    const dr=m.prediction?.draw||m.prob_draw||0;
+    const aw=m.prediction?.away_win||m.prob_away||0;
+    const total=hw+dr+aw||1;
+    const hp=(hw/total*100).toFixed(0);
+    const dp=(dr/total*100).toFixed(0);
+    const ap=(aw/total*100).toFixed(0);
+    const date=(m.date||'').slice(0,10);
+    const time=(m.date||'').slice(11,16);
+
+    const best=Math.max(hw,dr,aw);
+    const confClass=best>55?'conf':'conf low';
+    const confText=best>65?'Высокая':best>50?'Средняя':'Низкая';
+
+    const bttsYes=hw/dr>1.3||aw/dr>1.3;
+    const totalGoals=(m.expected_home||1.3)+(m.expected_away||1.1);
+
+    return `<div class="match-card" onclick="openMatch(${i})">
+      <div class="mc-header">
+        <div class="mc-league">${(m.league_slug||'').replace(/_/g,' ')}</div>
+        <div class="mc-date">${date} ${time}</div>
+      </div>
+      <div class="mc-teams">
+        <div class="mc-home">${m.home_name||'?'}</div>
+        <div class="mc-score">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div>
+        <div class="mc-away">${m.away_name||'?'}</div>
+      </div>
+      <div class="mc-bar"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>
+      <div class="mc-probs"><span class="h">${hp}%</span><span class="d">${dp}%</span><span class="a">${ap}%</span></div>
+      <div class="mc-tags">
+        <span class="mc-tag ${confClass}">${confText}</span>
+        ${totalGoals>2.5?'<span class="mc-tag over">Over 2.5</span>':'<span class="mc-tag under">Under 2.5</span>'}
+        ${bttsYes?'<span class="mc-tag btts">BTTS Да</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Update search index for autocomplete
+  window._matchData=searched;
+}
+
+document.getElementById('search-input').addEventListener('input',renderMatches);
+
+function openMatch(i){
+  const m=(window._matchData||allMatches)[i];
+  if(!m)return;
+  const hw=m.prediction?.home_win||m.prob_home||0;
+  const dr=m.prediction?.draw||m.prob_draw||0;
+  const aw=m.prediction?.away_win||m.prob_away||0;
+  const total=hw+dr+aw||1;
+  const hp=(hw/total*100).toFixed(1);
+  const dp=(dr/total*100).toFixed(1);
+  const ap=(aw/total*100).toFixed(1);
+  const best=Math.max(hw,dr,aw);
+  const bestClass=hw===best?'home':dr===best?'draw':'away';
+
+  document.getElementById('modal-content').innerHTML=`
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700">${(m.league_slug||'').replace(/_/g,' ')}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${(m.date||'').slice(0,16)}</div>
+    </div>
+    <div class="mc-teams" style="margin:16px 0">
+      <div class="mc-home" style="font-size:16px">${m.home_name||'?'}</div>
+      <div class="mc-score" style="font-size:16px;padding:8px 16px">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div>
+      <div class="mc-away" style="font-size:16px">${m.away_name||'?'}</div>
+    </div>
+    <div class="prob-big">
+      <div class="prob-item ${bestClass==='home'?'best home':''}"><div class="label">Хозяева</div><div class="value" style="${bestClass==='home'?'':''}">${hp}%</div></div>
+      <div class="prob-item ${bestClass==='draw'?'best draw':''}"><div class="label">Ничья</div><div class="value">${dp}%</div></div>
+      <div class="prob-item ${bestClass==='away'?'best away':''}"><div class="label">Гости</div><div class="value">${ap}%</div></div>
+    </div>
+    <div class="mc-bar" style="height:10px;margin:12px 0"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+      ${m.home_avg_xg_for?`<div style="font-size:11px;color:var(--text3)">xG: ${m.home_avg_xg_for?.toFixed(2)||'-'} vs ${m.away_avg_xg_for?.toFixed(2)||'-'}</div>`:''}
+      ${m.elo_diff!=null?`<div style="font-size:11px;color:var(--text3)">Elo diff: ${m.elo_diff?.toFixed(0)||'0'}</div>`:''}
+    </div>
+    <button class="btn btn-primary full" style="margin-top:16px" onclick="closeModal();openAnalysisFor('${(m.home_name||'').replace(/'/g,"\\'")}','${(m.away_name||'').replace(/'/g,"\\'")}')">AI Анализ</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('modal'))return;
+  document.getElementById('modal').classList.remove('open');
+}
+
+function openAnalysisFor(home,away){
+  switchPane('analysis');
+  document.getElementById('ai-home').value=home;
+  document.getElementById('ai-away').value=away;
+  document.getElementById('ai-btn').disabled=false;
+}
+
+// ── Standings ──
+const TRAINABLE_LEAGUES=['EPL','La_liga','Bundesliga','Serie_A','Ligue_1','RFPL','Eredivisie','Primeira_Liga','Super_Lig','Championship'];
+let selectedStandingLeague='EPL';
+
+function loadStandings(){
+  const c=document.getElementById('st-league-chips');
+  c.innerHTML=TRAINABLE_LEAGUES.map(lg=>
+    `<div class="league-chip ${lg===selectedStandingLeague?'on':''}" data-league="${lg}" onclick="selectStandingLeague('${lg}')">${lg.replace(/_/g,' ')}</div>`
+  ).join('');
+  fetchStandings(selectedStandingLeague);
+}
+
+function selectStandingLeague(lg){
+  selectedStandingLeague=lg;
+  document.querySelectorAll('#st-league-chips .league-chip').forEach(c=>c.classList.toggle('on',c.dataset.league===lg));
+  fetchStandings(lg);
+}
+
+async function fetchStandings(lg){
+  const body=document.getElementById('standings-body');
+  body.innerHTML='<div class="skeleton sk-bar" style="width:100%"></div><div class="skeleton sk-line" style="width:100%"></div>';
+  try{
+    const r=await fetch(`/api/standings?league=${lg}`);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const rows=data.standings||data||[];
+    if(!rows.length){body.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Нет данных</div>';return}
+    body.innerHTML=`<table><thead><tr><th class="pos">#</th><th>Команда</th><th class="num">И</th><th class="num">В</th><th class="num">Н</th><th class="num">П</th><th class="num">О</th></tr></thead><tbody>${
+      rows.map((t,i)=>{
+        const cls=i<3?'cl':i>=rows.length-3?'rel':'';
+        return `<tr class="${cls}"><td class="pos">${i+1}</td><td class="team-cell">${t.name||t.team||'?'}</td><td class="num">${t.played||0}</td><td class="num">${t.won||0}</td><td class="num">${t.drawn||0}</td><td class="num">${t.lost||0}</td><td class="num" style="font-weight:800">${t.points||0}</td></tr>`;
+      }).join('')
+    }</tbody></table>`;
+  }catch(e){body.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text3)">Ошибка: ${e.message}</div>`}
+}
+
+// ── AI Analysis ──
+let aiTeams=[];
+const aiHome=document.getElementById('ai-home');
+const aiAway=document.getElementById('ai-away');
+
+[aiHome,aiAway].forEach((inp,idx)=>{
+  inp.addEventListener('input',async()=>{
+    const v=inp.value.trim();
+    const ac=document.getElementById(idx===0?'ac-home':'ac-away');
+    if(v.length<2){ac.classList.remove('open');return}
+    try{
+      const r=await fetch(`/api/ai/search-db?q=${encodeURIComponent(v)}`);
+      const data=await r.json();
+      const results=data.results||[];
+      if(!results.length){ac.classList.remove('open');return}
+      ac.innerHTML=results.map(t=>`<div class="item" onclick="selectAiTeam(${idx},'${(t.name||'').replace(/'/g,"\\'")}')">${t.name}<span class="lg">${t.league_slug||''}</span></div>`).join('');
+      ac.classList.add('open');
+    }catch(e){}
+  });
+  inp.addEventListener('focus',()=>{
+    document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open');
+  });
+});
+
+function selectAiTeam(idx,name){
+  [aiHome,aiAway][idx].value=name;
+  document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open');
+  document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value);
+}
+
+aiHome.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value)});
+aiAway.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value)});
+
+document.getElementById('ai-btn').addEventListener('click',runAnalysis);
+
+async function runAnalysis(){
+  const home=aiHome.value.trim();
+  const away=aiAway.value.trim();
+  if(!home||!away)return;
+
+  document.getElementById('ai-loading').classList.remove('hide');
+  document.getElementById('ai-result').classList.add('hide');
+  document.getElementById('ai-btn').disabled=true;
+
+  try{
+    const r=await fetch('/api/ai/search-and-predict',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({home_name:home,away_name:away})
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    renderAnalysisResult(data);
+  }catch(e){
+    document.getElementById('ai-loading').classList.add('hide');
+    document.getElementById('ai-text-block').innerHTML=`<div style="color:var(--red);padding:16px">Ошибка: ${e.message}</div>`;
+    document.getElementById('ai-result').classList.remove('hide');
+  }
+  document.getElementById('ai-btn').disabled=false;
+}
+
+function renderAnalysisResult(data){
+  document.getElementById('ai-loading').classList.add('hide');
+  const result=document.getElementById('ai-result');
+  const probDisplay=document.getElementById('ai-prob-display');
+  const textBlock=document.getElementById('ai-text-block');
+
+  const pred=data.prediction;
+  if(pred&&pred.probabilities){
+    const p=pred.probabilities;
+    const hw=p.home_win||0,dr=p.draw||0,aw=p.away_win||0;
+    const total=hw+dr+aw||1;
+    const hp=(hw/total*100).toFixed(1);
+    const dp=(dr/total*100).toFixed(1);
+    const ap=(aw/total*100).toFixed(1);
+    const best=Math.max(hw,dr,aw);
+    const bc=hw===best?'home':dr===best?'draw':'away';
+
+    probDisplay.innerHTML=`
+      <div style="text-align:center;margin-bottom:4px">
+        <div style="font-size:12px;color:var(--text3)">${data.home?.name||aiHome.value} vs ${data.away?.name||aiAway.value}</div>
+      </div>
+      <div class="prob-big">
+        <div class="prob-item ${bc==='home'?'best home':''}"><div class="label">Победа</div><div class="value">${hp}%</div></div>
+        <div class="prob-item ${bc==='draw'?'best draw':''}"><div class="label">Ничья</div><div class="value">${dp}%</div></div>
+        <div class="prob-item ${bc==='away'?'best away':''}"><div class="label">Победа</div><div class="value">${ap}%</div></div>
+      </div>
+      <div class="mc-bar" style="height:10px;margin:4px 0 16px"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>`;
+  }else{
+    probDisplay.innerHTML='';
+  }
+
+  if(data.analysis){
+    textBlock.innerHTML=`<div class="analysis">${escapeHtml(data.analysis)}</div>`;
+  }else{
+    textBlock.innerHTML='<div style="color:var(--text3);padding:12px;text-align:center">Анализ недоступен</div>';
+  }
+
+  result.classList.remove('hide');
+  window._lastAnalysis=data;
+}
+
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+function savePrediction(){
+  const data=window._lastAnalysis;
+  if(!data)return;
+  fetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({home_name:data.home?.name,away_name:data.away?.name,prediction:data.prediction,analysis:data.analysis})
+  }).then(()=>{const b=document.getElementById('ai-save-btn');b.textContent='Сохранено!';b.disabled=true;setTimeout(()=>{b.textContent='Сохранить';b.disabled=false},2000)});
+}
+
+// ── Accuracy ──
+async function loadAccuracy(){
+  const body=document.getElementById('accuracy-body');
+  try{
+    const r=await fetch('/api/model-stats');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const acc=data.accuracy||data.cv_accuracy||0;
+    document.getElementById('stat-accuracy').textContent=acc?(acc*100).toFixed(1)+'%':'-';
+
+    let html=`<div style="text-align:center;margin:16px 0"><div style="font-size:42px;font-weight:900;font-family:var(--mono);background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${acc?(acc*100).toFixed(1)+'%':'N/A'}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">Средняя точность</div></div>`;
+
+    if(data.per_league){
+      html+='<div style="margin-top:16px">';
+      Object.entries(data.per_league).sort((a,b)=>b[1]-a[1]).forEach(([lg,acc])=>{
+        const pct=(acc*100).toFixed(1);
+        const color=acc>0.5?'var(--green)':acc>0.4?'var(--amber)':'var(--red)';
+        html+=`<div class="acc-row"><span class="acc-name">${lg.replace(/_/g,' ')}</span><div class="acc-bar"><div class="acc-bar-fill" style="width:${pct}%;background:${color}"></div></div><span class="acc-pct" style="color:${color}">${pct}%</span></div>`;
+      });
+      html+='</div>';
+    }
+
+    body.innerHTML=html;
+  }catch(e){
+    body.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text3)">Нет данных о точности. Запустите бэктест.</div>`;
+  }
+}
+
+// ── Init ──
+loadUpcoming();
+
+// Auto-refresh every 5 min
+setInterval(loadUpcoming,300000);
+</script>
+</body>
+</html>
