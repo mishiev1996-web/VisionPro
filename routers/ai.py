@@ -286,3 +286,70 @@ def api_prediction_print(pred_id: int):
   <script>window.onload=()=>window.print()</script>
 </body></html>"""
     return HTMLResponse(content=html)
+
+
+# ── Bankroll Management ──────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel
+from typing import Optional as _Optional
+
+
+class BankrollSetRequest(_BaseModel):
+    balance: float
+    currency: str = "RUB"
+
+
+class TransactionRequest(_BaseModel):
+    type: str  # 'deposit' | 'withdrawal' | 'bet' | 'win' | 'loss' | 'refund'
+    amount: float
+    prediction_id: _Optional[int] = None
+    description: str = ""
+
+
+class SettingsRequest(_BaseModel):
+    max_bet_pct: _Optional[float] = None
+    min_odds: _Optional[float] = None
+    kelly_fraction: _Optional[float] = None
+
+
+class KellyRequest(_BaseModel):
+    prob: float
+    odds: float
+
+
+@router.get("/bankroll")
+def api_get_bankroll():
+    return db.get_bankroll()
+
+
+@router.post("/bankroll/set")
+def api_set_bankroll(body: BankrollSetRequest):
+    db.set_bankroll(body.balance, body.currency)
+    return {"ok": True, "balance": body.balance}
+
+
+@router.get("/bankroll/transactions")
+def api_get_transactions(limit: int = 50):
+    return {"transactions": db.get_transactions(limit)}
+
+
+@router.post("/bankroll/transaction")
+def api_add_transaction(body: TransactionRequest):
+    result = db.add_transaction(body.type, body.amount, body.prediction_id, body.description)
+    return {"ok": True, **result}
+
+
+@router.get("/bankroll/settings")
+def api_get_settings():
+    return db.get_settings()
+
+
+@router.post("/bankroll/settings")
+def api_update_settings(body: SettingsRequest):
+    db.update_settings(body.max_bet_pct, body.min_odds, body.kelly_fraction)
+    return {"ok": True}
+
+
+@router.post("/bankroll/kelly")
+def api_calculate_kelly(body: KellyRequest):
+    return db.calculate_kelly(body.prob, body.odds)

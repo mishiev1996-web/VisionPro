@@ -279,6 +279,36 @@ CREATE TABLE IF NOT EXISTS sstats_injuries (
     FOREIGN KEY (game_id) REFERENCES sstats_matches(game_id)
 );
 CREATE INDEX IF NOT EXISTS idx_sstats_inj_game ON sstats_injuries(game_id);
+
+-- ── Bankroll management ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bankroll (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    balance     REAL NOT NULL DEFAULT 0,
+    currency    TEXT NOT NULL DEFAULT 'RUB',
+    updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bankroll_date ON bankroll(updated_at);
+
+CREATE TABLE IF NOT EXISTS bankroll_transactions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    type            TEXT NOT NULL,       -- 'deposit' | 'withdrawal' | 'bet' | 'win' | 'loss' | 'refund'
+    amount          REAL NOT NULL,
+    balance_after   REAL NOT NULL,
+    prediction_id   INTEGER,             -- linked to predictions table
+    description     TEXT,
+    created_at      TEXT NOT NULL,
+    FOREIGN KEY (prediction_id) REFERENCES predictions(id)
+);
+CREATE INDEX IF NOT EXISTS idx_br_trans_type ON bankroll_transactions(type);
+CREATE INDEX IF NOT EXISTS idx_br_trans_date ON bankroll_transactions(created_at);
+
+CREATE TABLE IF NOT EXISTS bankroll_settings (
+    id              INTEGER PRIMARY KEY DEFAULT 1,
+    max_bet_pct     REAL NOT NULL DEFAULT 5.0,    -- max % of bankroll per bet
+    min_odds        REAL NOT NULL DEFAULT 1.5,    -- minimum odds to bet
+    kelly_fraction  REAL NOT NULL DEFAULT 0.25,   -- fractional Kelly (0.25 = quarter Kelly)
+    updated_at      TEXT NOT NULL
+);
 """
 
 
@@ -1491,3 +1521,138 @@ def save_sstats_injuries(conn: sqlite3.Connection, game_id: int,
         )
         saved += 1
     return saved
+
+
+# ── Bankroll Management ───────────────────────────────────────────────────────
+
+def get_bankroll() -> Dict[str, Any]:
+    """Get current bankroll balance and settings."""
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM bankroll ORDER BY id DESC LIMIT 1").fetchone()
+        settings = conn.execute("SELECT * FROM bankroll_settings WHERE id=1").fetchone()
+        if not row:
+            return {"balance": 0, "currency": "RUB", "settings": dict(settings) if settings else None}
+        return {"balance": row["balance"], "currency": row["currency"],
+                "settings": dict(settings) if settings else None}
+
+
+def set_bankroll(balance: float, currency: str = "RUB") -> None:
+    """Set initial bankroll or update balance."""
+    now = dt.datetime.now().isoformat(timespec="seconds")
+    with connect() as conn:
+        conn.execute("INSERT INTO bankroll (balance, currency, updated_at) VALUES (?, ?, ?)",
+                     (balance, currency, now))
+
+
+def add_transaction(type_: str, amount: float, prediction_id: int = None,
+                    description: str = "") -> Dict[str, Any]:
+    """Add a bankroll transaction and update balance."""
+    now = dt.datetime.now().isoformat(timespec="seconds")
+    with connect() as conn:
+        current = conn.execute("SELECT balance FROM bankroll ORDER BY id DESC LIMIT 1").fetchone()
+        current_balance = current["balance"] if current else 0
+
+        if type_ == "deposit":
+            new_balance = current_balance + amount
+        elif type_ == "withdrawal":
+            new_balance = current_balance - amount
+        elif type_ == "bet":
+            new_balance = current_balance - amount
+        elif type_ == "win":
+            new_balance = current_balance + amount
+        elif type_ == "loss":
+            new_balance = current_balance
+        elif type_ == "refund":
+            new_balance = current_balance + amount
+        else:
+            new_balance = current_balance
+
+        cur = conn.execute(
+            "INSERT INTO bankroll_transactions (type, amount, balance_after, prediction_id, description, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (type_, amount, new_balance, prediction_id, description, now),
+        )
+        conn.execute("INSERT INTO bankroll (balance, currency, updated_at) VALUES (?, 'RUB', ?)",
+                     (new_balance, now))
+        return {"id": cur.lastrowid, "balance_after": new_balance}
+
+
+def get_transactions(limit: int = 50) -> List[Dict[str, Any]]:
+    """Get recent bankroll transactions."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM bankroll_transactions ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_settings() -> Dict[str, Any]:
+    """Get bankroll settings."""
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM bankroll_settings WHERE id=1").fetchone()
+        if not row:
+            return {"max_bet_pct": 5.0, "min_odds": 1.5, "kelly_fraction": 0.25}
+        return dict(row)
+
+
+def update_settings(max_bet_pct: float = None, min_odds: float = None,
+                    kelly_fraction: float = None) -> None:
+    """Update bankroll settings."""
+    now = dt.datetime.now().isoformat(timespec="seconds")
+    with connect() as conn:
+        current = get_settings()
+        conn.execute(
+            "INSERT OR REPLACE INTO bankroll_settings (id, max_bet_pct, min_odds, kelly_fraction, updated_at) "
+            "VALUES (1, ?, ?, ?, ?)",
+            (
+                max_bet_pct if max_bet_pct is not None else current["max_bet_pct"],
+                min_odds if min_odds is not None else current["min_odds"],
+                kelly_fraction if kelly_fraction is not None else current["kelly_fraction"],
+                now,
+            ),
+        )
+
+
+def calculate_kelly(prob: float, odds: float, settings: Dict = None) -> Dict[str, Any]:
+    """Calculate Kelly Criterion bet size.
+
+    Args:
+        prob: estimated probability of winning (0-1)
+        odds: decimal odds (e.g., 2.0 for even money)
+
+    Returns:
+        {kelly_pct, recommended_bet, edge, is_viable}
+    """
+    if settings is None:
+        settings = get_settings()
+
+    if odds < settings.get("min_odds", 1.5):
+        return {"kelly_pct": 0, "recommended_bet": 0, "edge": 0,
+                "is_viable": False, "reason": "Кф ниже минимума"}
+
+    if prob <= 0 or odds <= 1:
+        return {"kelly_pct": 0, "recommended_bet": 0, "edge": 0,
+                "is_viable": False, "reason": "Некорректные данные"}
+
+    b = odds - 1
+    kelly_full = (prob * b - 1) / b
+    kelly_fraction = settings.get("kelly_fraction", 0.25)
+    kelly_pct = kelly_full * kelly_fraction * 100
+    max_bet_pct = settings.get("max_bet_pct", 5.0)
+    kelly_pct = min(kelly_pct, max_bet_pct)
+    kelly_pct = max(kelly_pct, 0)
+
+    edge = (prob * odds - 1) * 100
+    bankroll = get_bankroll()
+    balance = bankroll.get("balance", 0)
+    recommended_bet = round(balance * kelly_pct / 100, 2)
+    is_viable = kelly_pct > 0 and edge > 0
+
+    return {
+        "kelly_pct": round(kelly_pct, 2),
+        "recommended_bet": recommended_bet,
+        "edge": round(edge, 2),
+        "is_viable": is_viable,
+        "reason": None if is_viable else "Нет преимущества" if edge <= 0 else "Kelly = 0",
+    }
