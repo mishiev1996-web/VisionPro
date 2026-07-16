@@ -844,6 +844,34 @@ def _search_understat_for_team(name: str, progress_cb=None) -> Optional[dict]:
 
 # ── Russian → English team name mapping ─────────────────────────────────────
 
+# ── Team name cache (auto-populated from LLM translations) ───────────────────
+import json as _json
+import os as _os
+
+_TEAM_CACHE_PATH = _os.path.join(_os.path.dirname(__file__), "data", "team_name_cache.json")
+_TEAM_CACHE: Dict[str, str] = {}
+
+def _load_team_cache():
+    global _TEAM_CACHE
+    try:
+        if _os.path.exists(_TEAM_CACHE_PATH):
+            with open(_TEAM_CACHE_PATH, "r", encoding="utf-8") as f:
+                _TEAM_CACHE = _json.load(f)
+    except Exception:
+        _TEAM_CACHE = {}
+
+def _save_team_cache():
+    try:
+        _os.makedirs(_os.path.dirname(_TEAM_CACHE_PATH), exist_ok=True)
+        with open(_TEAM_CACHE_PATH, "w", encoding="utf-8") as f:
+            _json.dump(_TEAM_CACHE, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+# Load cache on import
+_load_team_cache()
+
+
 TEAM_NAME_MAP = {
     # Russia
     "арсенал тула": "Arsenal Tula", "арсенал": "Arsenal Tula",
@@ -1046,7 +1074,7 @@ def _transliterate_ru_to_en(text: str) -> str:
 
 
 def _resolve_team_name(name: str) -> str:
-    """Resolve Russian team name to English equivalent using mapping or LLM."""
+    """Resolve Russian team name to English equivalent using mapping, cache, or LLM."""
     q = name.strip().lower()
 
     # 1. Check exact mapping
@@ -1058,17 +1086,25 @@ def _resolve_team_name(name: str) -> str:
         if q in ru or ru in q:
             return en
 
-    # 3. If already Latin, return as-is
+    # 3. Check auto-cache
+    if q in _TEAM_CACHE:
+        return _TEAM_CACHE[q]
+
+    # 4. If already Latin, return as-is
     if all(ord(c) < 128 for c in name.strip()):
         return name.strip()
 
-    # 4. Use LLM to resolve
+    # 5. Use LLM to resolve
     resolved = _chat([
         {"role": "system", "content": "Ты помощник. Верни ТОЛЬКО английское название команды/сборной. Никакого текста, только название на английском."},
         {"role": "user", "content": f"Как называется эта команда по-английски: {name}"}
     ], temperature=0, max_tokens=50)
     if resolved:
-        return resolved.strip().strip('"').strip("'")
+        en_name = resolved.strip().strip('"').strip("'")
+        # Cache the translation
+        _TEAM_CACHE[q] = en_name
+        _save_team_cache()
+        return en_name
     return name.strip()
 
 

@@ -501,14 +501,14 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
       <h1 class="hero-title">Найди свой<br>прогноз.</h1>
       <p class="hero-sub">Назови две команды — VisionPro подготовит разбор.</p>
       <div class="voice-btn-wrap">
-        <button class="voice-btn" id="voice-btn" onclick="startVoiceInput()" title="Голосовой ввод">
+        <button class="voice-btn" id="voice-btn" title="Зажми и говори">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
-        <p class="voice-hint" id="voice-hint">Нажми и скажи свободно, например: «Арсенал против Челси»</p>
+        <p class="voice-hint" id="voice-hint">Зажми и скажи свободно, например: «Арсенал против Челси»</p>
       </div>
     </div>
 
-    <div class="glass-card">
+    <div class="glass-card" id="ai-input-card">
       <div class="fgrp"><label class="fld">Модель ИИ</label>
         <select id="ai-model" class="inp" style="font-size:14px;cursor:pointer"></select>
       </div>
@@ -1309,13 +1309,30 @@ function translateBet(t){
   return m[t.toUpperCase()]||t;
 }
 
-// ── Voice Input ──
+// ── Voice Input (hold to record) ──
 let _voiceRecognition=null;
 let _voiceListening=false;
+
+// Init hold-to-record on voice button
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('voice-btn');
+  if(!btn)return;
+
+  // Mouse
+  btn.addEventListener('mousedown',(e)=>{e.preventDefault();startVoiceInput()});
+  btn.addEventListener('mouseup',()=>stopVoiceInput());
+  btn.addEventListener('mouseleave',()=>{if(_voiceListening)stopVoiceInput()});
+
+  // Touch
+  btn.addEventListener('touchstart',(e)=>{e.preventDefault();startVoiceInput()},{passive:false});
+  btn.addEventListener('touchend',()=>stopVoiceInput());
+  btn.addEventListener('touchcancel',()=>{if(_voiceListening)stopVoiceInput()});
+});
 
 function startVoiceInput(){
   const btn=document.getElementById('voice-btn');
   const hint=document.getElementById('voice-hint');
+  const card=document.getElementById('ai-input-card');
 
   if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
     hint.textContent='Голосовой ввод не поддерживается в этом браузере';
@@ -1323,22 +1340,22 @@ function startVoiceInput(){
     return;
   }
 
-  if(_voiceListening){
-    if(_voiceRecognition)_voiceRecognition.stop();
-    return;
-  }
+  if(_voiceListening)return;
 
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   _voiceRecognition=new SpeechRecognition();
   _voiceRecognition.lang='ru-RU';
   _voiceRecognition.interimResults=true;
   _voiceRecognition.maxAlternatives=3;
+  _voiceRecognition.continuous=true;
 
   _voiceRecognition.onstart=()=>{
     _voiceListening=true;
     btn.classList.add('listening');
-    hint.textContent='Слушаю...';
+    hint.textContent='Держи и говори...';
     hint.classList.add('active');
+    // Hide input card, show listening state
+    if(card)card.style.display='none';
   };
 
   _voiceRecognition.onresult=(e)=>{
@@ -1357,6 +1374,7 @@ function startVoiceInput(){
     _voiceListening=false;
     btn.classList.remove('listening');
     hint.classList.remove('active');
+    if(card)card.style.display='';
     if(e.error==='no-speech')hint.textContent='Речь не распознана, попробуйте ещё раз';
     else if(e.error==='not-allowed')hint.textContent='Разрешите доступ к микрофону';
     else hint.textContent='Ошибка: '+e.error;
@@ -1365,10 +1383,16 @@ function startVoiceInput(){
   _voiceRecognition.onend=()=>{
     _voiceListening=false;
     btn.classList.remove('listening');
-    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Нажми и скажи свободно, например: «Арсенал против Челси»'},2000);
+    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Зажми и скажи свободно, например: «Арсенал против Челси»'},2000);
   };
 
   _voiceRecognition.start();
+}
+
+function stopVoiceInput(){
+  if(_voiceRecognition&&_voiceListening){
+    _voiceRecognition.stop();
+  }
 }
 
 function parseVoiceInput(text){
@@ -1424,10 +1448,15 @@ function parseVoiceInput(text){
     hint.textContent=home+' vs '+away;
     hint.style.color='#d4af37';
 
+    // Show card back and auto-run analysis
+    const card=document.getElementById('ai-input-card');
+    if(card)card.style.display='';
     setTimeout(()=>runAnalysis(),500);
   }else{
     hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';
     hint.style.color='#ff3b30';
+    const card=document.getElementById('ai-input-card');
+    if(card)card.style.display='';
   }
 }
 
