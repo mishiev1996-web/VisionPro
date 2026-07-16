@@ -278,6 +278,16 @@ label.fld{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:
 .hero-title{font-size:clamp(34px,10vw,44px);line-height:1.08;letter-spacing:-.04em;font-weight:700;animation:heroUp .9s var(--ease) both .05s;color:var(--ink)}
 .hero-sub{margin-top:10px;font-size:15px;color:var(--ink);letter-spacing:-.01em;animation:heroUp .9s var(--ease) both .22s;opacity:.7}
 
+/* Voice button */
+.voice-btn-wrap{margin-top:24px;display:flex;flex-direction:column;align-items:center;gap:10px;animation:heroUp .9s var(--ease) both .4s}
+.voice-btn{width:64px;height:64px;border-radius:50%;border:2px solid rgba(212,175,55,.4);background:rgba(212,175,55,.08);color:#d4af37;cursor:pointer;display:grid;place-items:center;transition:all .3s var(--spring);box-shadow:0 0 20px rgba(212,175,55,.15)}
+.voice-btn:hover{background:rgba(212,175,55,.15);border-color:rgba(212,175,55,.6);box-shadow:0 0 30px rgba(212,175,55,.25);transform:scale(1.05)}
+.voice-btn:active{transform:scale(.95)}
+.voice-btn.listening{background:rgba(255,59,48,.15);border-color:rgba(255,59,48,.6);color:#ff3b30;animation:voicePulse 1.5s ease-in-out infinite}
+@keyframes voicePulse{0%,100%{box-shadow:0 0 20px rgba(255,59,48,.2)}50%{box-shadow:0 0 40px rgba(255,59,48,.4)}}
+.voice-hint{font-size:13px;color:var(--ink3);text-align:center;transition:color .3s}
+.voice-hint.active{color:#d4af37}
+
 /* Glass card */
 .glass-card{background:rgba(255,255,255,.04);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
   border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:20px;margin-top:20px;
@@ -446,6 +456,12 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
     <div class="hero">
       <h1 class="hero-title">Найди свой<br>прогноз.</h1>
       <p class="hero-sub">Назови две команды — VisionPro подготовит разбор.</p>
+      <div class="voice-btn-wrap">
+        <button class="voice-btn" id="voice-btn" onclick="startVoiceInput()" title="Голосовой ввод">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <p class="voice-hint" id="voice-hint">Нажми и скажи: «Арсенал против Челси»</p>
+      </div>
     </div>
 
     <div class="glass-card">
@@ -1023,6 +1039,105 @@ function escapeHtml(t){const d=document.createElement('div');d.textContent=t;ret
 function translateBet(t){
   const m={'HOME':'Победа хозяев','AWAY':'Победа гостей','DRAW':'Ничья','P1':'Победа хозяев','X':'Ничья','P2':'Победа гостей'};
   return m[t.toUpperCase()]||t;
+}
+
+// ── Voice Input ──
+let _voiceRecognition=null;
+let _voiceListening=false;
+
+function startVoiceInput(){
+  const btn=document.getElementById('voice-btn');
+  const hint=document.getElementById('voice-hint');
+
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    hint.textContent='Голосовой ввод не поддерживается в этом браузере';
+    hint.style.color='#ff3b30';
+    return;
+  }
+
+  if(_voiceListening){
+    if(_voiceRecognition)_voiceRecognition.stop();
+    return;
+  }
+
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  _voiceRecognition=new SpeechRecognition();
+  _voiceRecognition.lang='ru-RU';
+  _voiceRecognition.interimResults=true;
+  _voiceRecognition.maxAlternatives=3;
+
+  _voiceRecognition.onstart=()=>{
+    _voiceListening=true;
+    btn.classList.add('listening');
+    hint.textContent='Слушаю...';
+    hint.classList.add('active');
+  };
+
+  _voiceRecognition.onresult=(e)=>{
+    let transcript='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      transcript=e.results[i][0].transcript;
+    }
+    hint.textContent=transcript||'Слушаю...';
+
+    if(e.results[e.results.length-1].isFinal){
+      parseVoiceInput(transcript);
+    }
+  };
+
+  _voiceRecognition.onerror=(e)=>{
+    _voiceListening=false;
+    btn.classList.remove('listening');
+    hint.classList.remove('active');
+    if(e.error==='no-speech')hint.textContent='Речь не распознана, попробуйте ещё раз';
+    else if(e.error==='not-allowed')hint.textContent='Разрешите доступ к микрофону';
+    else hint.textContent='Ошибка: '+e.error;
+  };
+
+  _voiceRecognition.onend=()=>{
+    _voiceListening=false;
+    btn.classList.remove('listening');
+    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Нажми и скажи: «Арсенал против Челси»'},2000);
+  };
+
+  _voiceRecognition.start();
+}
+
+function parseVoiceInput(text){
+  const hint=document.getElementById('voice-hint');
+  text=text.trim();
+
+  const separators=['против','vs','на','playing','versus'];
+  let parts=null;
+
+  for(const sep of separators){
+    const idx=text.toLowerCase().indexOf(sep);
+    if(idx>0){
+      parts=[text.substring(0,idx).trim(),text.substring(idx+sep.length).trim()];
+      break;
+    }
+  }
+
+  if(!parts){
+    const words=text.split(/\s+/);
+    if(words.length>=2){
+      const mid=Math.ceil(words.length/2);
+      parts=[words.slice(0,mid).join(' '),words.slice(mid).join(' ')];
+    }
+  }
+
+  if(parts&&parts[0]&&parts[1]){
+    document.getElementById('ai-home').value=parts[0];
+    document.getElementById('ai-away').value=parts[1];
+    document.getElementById('ai-btn').disabled=false;
+    hint.textContent=parts[0]+' vs '+parts[1];
+    hint.style.color='#d4af37';
+
+    setTimeout(()=>runAnalysis(),500);
+  }else{
+    hint.textContent='Не удалось распознать. Скажи: «Команда1 против Команда2»';
+    hint.style.color='#ff3b30';
+  }
 }
 
 function savePrediction(){
