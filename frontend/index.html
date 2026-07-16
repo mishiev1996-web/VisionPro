@@ -76,20 +76,21 @@ body::after{content:"";position:fixed;z-index:-1;bottom:0;right:0;width:50vmax;h
 @keyframes rise{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
 
 /* Header */
-header{position:sticky;top:0;z-index:20;padding:18px 16px 14px;max-width:560px;margin:0 auto;
-  background:rgba(0,0,0,.45);backdrop-filter:saturate(200%) blur(40px);-webkit-backdrop-filter:saturate(200%) blur(40px);
-  border-bottom:1px solid rgba(255,255,255,.08);
-  box-shadow:0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(255,255,255,.03);
+header{position:sticky;top:0;z-index:20;padding:18px 16px 14px;max-width:560px;margin:0 auto;border-radius:0 0 20px 20px;
+  background:linear-gradient(135deg,rgba(180,140,50,.25),rgba(120,90,30,.18),rgba(60,45,15,.35));
+  backdrop-filter:saturate(200%) blur(40px);-webkit-backdrop-filter:saturate(200%) blur(40px);
+  border:1px solid rgba(212,175,55,.2);border-top:none;
+  box-shadow:0 4px 24px rgba(212,175,55,.12),inset 0 -1px 0 rgba(212,175,55,.15);
   transition:box-shadow .3s var(--ease)}
-[data-theme="light"] header{background:rgba(245,245,247,.72);border-bottom:1px solid rgba(0,0,0,.06);box-shadow:0 1px 0 rgba(0,0,0,.04)}
-header.scrolled{box-shadow:0 1px 0 var(--sheetline)}
+[data-theme="light"] header{background:linear-gradient(135deg,rgba(212,175,55,.12),rgba(180,140,50,.08),rgba(245,245,247,.72));border-bottom:1px solid rgba(212,175,55,.15);box-shadow:0 4px 24px rgba(212,175,55,.08)}
+header.scrolled{box-shadow:0 4px 24px rgba(212,175,55,.18),inset 0 -1px 0 rgba(212,175,55,.2)}
 .htop{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .brand{display:flex;align-items:center;gap:11px}
 .brand-txt{display:flex;align-items:baseline;gap:7px}
 .brand-txt .o1{font-size:19px;font-weight:600;letter-spacing:-.02em}
 .brand-txt .o2{font-size:19px;font-weight:700;letter-spacing:-.01em}
 @keyframes brandShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-.grad-text{background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:brandShimmer 4s linear infinite}
+.grad-text{background:linear-gradient(100deg,#d4af37,#f0d060,#d4af37);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:brandShimmer 3s linear infinite}
 .theme-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--cardborder);background:var(--card2);color:var(--ink2);cursor:pointer;display:grid;place-items:center;font-size:15px;flex:none;transition:transform .3s var(--spring),color .2s,border-color .2s}
 .theme-btn:active{transform:scale(.9)}
 .theme-btn.on{color:var(--cyan);border-color:rgba(16,185,129,.4)}
@@ -119,7 +120,7 @@ nav.tabs button.active svg{transform:scale(1.08) translateY(-1px)}
 .card-t{font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--ink2);text-transform:uppercase;margin:0 6px 2px}
 
 /* Inputs */
-.inp{width:100%;background:var(--inpbg);border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:16px;color:var(--ink);outline:none;font-family:inherit;transition:border-color .25s var(--ease),box-shadow .25s var(--ease)}
+.inp,.inp[type="text"],select.inp{width:100%;background:var(--inpbg);border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:16px;color:var(--ink);outline:none;font-family:inherit;transition:border-color .25s var(--ease),box-shadow .25s var(--ease);appearance:none;-webkit-appearance:none}
 .inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3.5px rgba(16,185,129,.22)}
 .inp::placeholder{color:var(--ink3)}
 .fgrp{margin-top:14px}
@@ -275,7 +276,7 @@ label.fld{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:
 /* Hero */
 .hero{padding:32px 8px 0;text-align:center;will-change:transform,opacity}
 .hero-title{font-size:clamp(34px,10vw,44px);line-height:1.08;letter-spacing:-.04em;font-weight:700;animation:heroUp .9s var(--ease) both .05s;color:var(--ink)}
-.hero-sub{margin-top:10px;font-size:15px;color:var(--ink2);letter-spacing:-.01em;animation:heroUp .9s var(--ease) both .22s}
+.hero-sub{margin-top:10px;font-size:15px;color:var(--ink);letter-spacing:-.01em;animation:heroUp .9s var(--ease) both .22s;opacity:.7}
 
 /* Glass card */
 .glass-card{background:rgba(255,255,255,.04);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
@@ -429,16 +430,15 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
       <div style="display:flex;gap:8px;align-items:center">
         <div class="sport-switch" id="sport-switch">
           <button class="sport-btn active" data-sport="football" onclick="switchSport('football')">
-            <span class="sport-icon">⚽</span>
+            <svg class="sport-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
           </button>
           <button class="sport-btn" data-sport="tennis" onclick="switchSport('tennis')">
-            <span class="sport-icon">🎾</span>
+            <svg class="sport-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M18.09 5.91A5.97 5.97 0 0 0 12 4a5.97 5.97 0 0 0-6.09 1.91M5.91 18.09A5.97 5.97 0 0 0 12 20a5.97 5.97 0 0 0 6.09-1.91"/></svg>
           </button>
         </div>
-        <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему">☀</button>
+        <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>
       </div>
     </div>
-    <div class="hsub">xG · Elo · ML ensemble · 108 признаков</div>
   </header>
 
   <!-- ═══ PANE: ANALYSIS ═══ -->
@@ -454,11 +454,11 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
       </div>
       <div class="vs-row">
         <div style="flex:1"><label class="fld" id="ai-home-label">Хозяева</label>
-          <div class="search-wrap"><input class="inp" id="ai-home" placeholder="Arsenal" autocomplete="off"><div class="team-crest" id="crest-home">⚽</div><div class="ac" id="ac-home"></div></div>
+          <div class="search-wrap"><input class="inp" id="ai-home" placeholder="Arsenal" autocomplete="off"><div class="team-crest" id="crest-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg></div><div class="ac" id="ac-home"></div></div>
         </div>
         <div class="vs-divider">VS</div>
         <div style="flex:1"><label class="fld" id="ai-away-label">Гости</label>
-          <div class="search-wrap"><input class="inp" id="ai-away" placeholder="Chelsea" autocomplete="off"><div class="team-crest" id="crest-away">⚽</div><div class="ac" id="ac-away"></div></div>
+          <div class="search-wrap"><input class="inp" id="ai-away" placeholder="Chelsea" autocomplete="off"><div class="team-crest" id="crest-away"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg></div><div class="ac" id="ac-away"></div></div>
         </div>
       </div>
       <button class="btn wide" id="ai-btn" disabled style="margin-top:16px">Получить прогноз</button>
@@ -577,10 +577,10 @@ function toggleTheme(){
   const t=h.dataset.theme==='dark'?'light':'dark';
   h.dataset.theme=t;
   localStorage.setItem('vp_theme',t);
-  document.querySelector('.theme-btn').textContent=t==='dark'?'☀':'☾';
+  document.querySelector('.theme-btn').innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   document.querySelector('.theme-btn').classList.toggle('on',t==='light');
 }
-(function(){const t=localStorage.getItem('vp_theme');if(t){document.documentElement.dataset.theme=t;document.querySelector('.theme-btn').textContent=t==='dark'?'☀':'☾';document.querySelector('.theme-btn').classList.toggle('on',t==='light')}})();
+(function(){const t=localStorage.getItem('vp_theme');if(t){document.documentElement.dataset.theme=t;document.querySelector('.theme-btn').innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';document.querySelector('.theme-btn').classList.toggle('on',t==='light')}})();
 
 // ── Sport switching ──
 let currentSport=localStorage.getItem('vp_sport')||'football';
@@ -1419,7 +1419,7 @@ async function loadPredictions(){
     let html='<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:14px">Прогнозы ('+predictions.length+')</div>';
     predictions.forEach((p,i)=>{
       if(i>0)html+='<div class="grad-divider"></div>';
-      const typeIcon=p.prediction_type==='live'?'🔴':p.prediction_type==='prematch'?'⚽':'📊';
+      const typeIcon=p.prediction_type==='live'?'●':p.prediction_type==='prematch'?'○':'◆';
       const typeName=p.prediction_type==='live'?'Live':p.prediction_type==='prematch'?'Предматч':'Анализ';
       const dateStr=p.created_at?p.created_at.slice(0,10):'';
       const correctClass=p.is_correct===1?'background:rgba(48,209,88,.15);color:var(--green)':p.is_correct===0?'background:rgba(255,69,58,.1);color:var(--red)':'background:var(--card2);color:var(--ink3)';
@@ -1462,7 +1462,7 @@ async function loadPredictionDetail(predId){
 
     if(p.error){detail.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">'+p.error+'</div>';return}
 
-    const typeIcon=p.prediction_type==='live'?'🔴':p.prediction_type==='prematch'?'⚽':'📊';
+    const typeIcon=p.prediction_type==='live'?'●':p.prediction_type==='prematch'?'○':'◆';
     const typeName=p.prediction_type==='live'?'Live':p.prediction_type==='prematch'?'Предматч':'Анализ';
     const dateStr=p.created_at||'';
     const correctClass=p.is_correct===1?'background:rgba(48,209,88,.15);color:var(--green)':p.is_correct===0?'background:rgba(255,69,58,.1);color:var(--red)':'background:var(--card2);color:var(--ink3)';
