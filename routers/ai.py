@@ -353,3 +353,42 @@ def api_update_settings(body: SettingsRequest):
 @router.post("/bankroll/kelly")
 def api_calculate_kelly(body: KellyRequest):
     return db.calculate_kelly(body.prob, body.odds)
+
+
+# ── TTS (Text-to-Speech) ─────────────────────────────────────────────────────
+
+class TTSRequest(_BaseModel):
+    text: str
+    voice: str = "onyx"
+
+
+@router.post("/tts")
+def api_tts(body: TTSRequest):
+    """Convert text to speech via Polza.ai TTS API."""
+    import requests as _requests
+    import base64
+    import os
+
+    api_key = os.environ.get("POLZA_API_KEY", "")
+    if not api_key:
+        key_path = os.path.join(os.path.dirname(__file__), "..", "Апи", "key.txt")
+        if os.path.exists(key_path):
+            with open(key_path) as f:
+                api_key = f.read().strip()
+
+    if not api_key:
+        return {"error": "No API key"}
+
+    try:
+        r = _requests.post(
+            "https://polza.ai/api/v1/audio/speech",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": "openai/tts-1", "input": body.text, "voice": body.voice},
+            timeout=30,
+        )
+        if r.status_code != 200:
+            return {"error": f"TTS API error: {r.status_code}"}
+        data = r.json()
+        return {"audio": data.get("audio", "")}
+    except Exception as e:
+        return {"error": str(e)}

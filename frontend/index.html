@@ -110,6 +110,15 @@ header.scrolled{box-shadow:0 4px 24px rgba(212,175,55,.18),inset 0 -1px 0 rgba(2
 .theme-btn:active{transform:scale(.9)}
 .theme-btn.on{color:var(--cyan);border-color:rgba(16,185,129,.4)}
 
+/* Voice selector */
+.voice-select-wrap{position:relative}
+.voice-menu{position:absolute;top:100%;right:0;margin-top:8px;background:rgba(30,30,32,.95);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:8px;min-width:180px;display:none;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.voice-menu.open{display:block;animation:rise .2s var(--ease)}
+.voice-menu-title{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;padding:4px 8px 6px}
+.voice-option{display:block;width:100%;background:none;border:none;color:var(--ink);font-size:13px;padding:8px 10px;border-radius:8px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s}
+.voice-option:hover{background:rgba(255,255,255,.08)}
+.voice-option.active{background:rgba(212,175,55,.15);color:#d4af37}
+
 /* Sport switch */
 .sport-switch{display:flex;background:var(--card2);border:1px solid var(--cardborder);border-radius:980px;padding:3px;gap:2px}
 .sport-btn{background:none;border:none;padding:6px 12px;border-radius:980px;cursor:pointer;display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--ink3);transition:all .25s var(--ease);font-family:inherit}
@@ -469,6 +478,18 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
             <svg class="sport-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M18.09 5.91A5.97 5.97 0 0 0 12 4a5.97 5.97 0 0 0-6.09 1.91M5.91 18.09A5.97 5.97 0 0 0 12 20a5.97 5.97 0 0 0 6.09-1.91"/></svg>
           </button>
         </div>
+        <div class="voice-select-wrap">
+          <button class="theme-btn" id="voice-select-btn" onclick="toggleVoiceMenu()" title="Голос"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></button>
+          <div class="voice-menu" id="voice-menu">
+            <div class="voice-menu-title">Голос ассистента</div>
+            <button class="voice-option active" data-voice="onyx" onclick="selectVoice('onyx')">Onyx — глубокий</button>
+            <button class="voice-option" data-voice="echo" onclick="selectVoice('echo')">Echo — спокойный</button>
+            <button class="voice-option" data-voice="alloy" onclick="selectVoice('alloy')">Alloy — нейтральный</button>
+            <button class="voice-option" data-voice="fable" onclick="selectVoice('fable')">Fable — британский</button>
+            <button class="voice-option" data-voice="nova" onclick="selectVoice('nova')">Nova — женский</button>
+            <button class="voice-option" data-voice="shimmer" onclick="selectVoice('shimmer')">Shimmer — мягкий</button>
+          </div>
+        </div>
         <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>
       </div>
     </div>
@@ -696,6 +717,42 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 
 <script>
 "use strict";
+
+// ── Voice Menu & TTS ──
+let _selectedVoice=localStorage.getItem('vp_voice')||'onyx';
+// Highlight active voice on load
+document.querySelectorAll('.voice-option').forEach(b=>b.classList.toggle('active',b.dataset.voice===_selectedVoice));
+
+function toggleVoiceMenu(){
+  const menu=document.getElementById('voice-menu');
+  menu.classList.toggle('open');
+  const close=(e)=>{if(!e.target.closest('.voice-select-wrap')){menu.classList.remove('open');document.removeEventListener('click',close)}};
+  setTimeout(()=>document.addEventListener('click',close),0);
+}
+
+function selectVoice(voice){
+  _selectedVoice=voice;
+  localStorage.setItem('vp_voice',voice);
+  document.querySelectorAll('.voice-option').forEach(b=>b.classList.toggle('active',b.dataset.voice===voice));
+  document.getElementById('voice-menu').classList.remove('open');
+  showToast('Голос: '+voice);
+}
+
+async function speak(text){
+  try{
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:text,voice:_selectedVoice})});
+    if(!r.ok)return;
+    const data=await r.json();
+    if(!data.audio)return;
+    const bytes=Uint8Array.from(atob(data.audio),c=>c.charCodeAt(0));
+    const blob=new Blob([bytes],{type:'audio/mpeg'});
+    const url=URL.createObjectURL(blob);
+    const audio=new Audio(url);
+    audio.play();
+    audio.onended=()=>URL.revokeObjectURL(url);
+  }catch(e){console.error('TTS error:',e)}
+}
 
 // ── Theme ──
 function toggleTheme(){
