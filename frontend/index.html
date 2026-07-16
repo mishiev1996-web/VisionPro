@@ -587,6 +587,89 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
   </div>
 </div>
 
+<!-- ═══ PANE: BANKROLL ═══ -->
+<div id="pane-bankroll" class="hide">
+  <div class="hero-compact">
+    <h2>Банкролл</h2>
+    <p>Управление банкроллом и расчёт ставок</p>
+  </div>
+
+  <div class="glass-card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px">Баланс</div>
+        <div id="br-balance" style="font-size:32px;font-weight:700;color:var(--green);font-family:ui-monospace,'SF Mono',monospace">0 ₽</div>
+      </div>
+      <button class="btn tint sm" onclick="showDepositModal()">+ Пополнить</button>
+    </div>
+    <div id="br-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="text-align:center;padding:10px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Ставок</div>
+        <div id="br-bets-count" style="font-size:18px;font-weight:700;margin-top:2px">0</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Выигрышей</div>
+        <div id="br-wins-count" style="font-size:18px;font-weight:700;color:var(--green);margin-top:2px">0</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Проигрышей</div>
+        <div id="br-losses-count" style="font-size:18px;font-weight:700;color:var(--red);margin-top:2px">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-card" style="margin-top:12px">
+    <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:12px">Kelly Calculator</div>
+    <div class="vs-row" style="margin-top:0">
+      <div style="flex:1"><label class="fld">Вероятность %</label><input class="inp" id="kelly-prob" type="number" placeholder="60" min="1" max="99"></div>
+      <div style="flex:1"><label class="fld">Кф</label><input class="inp" id="kelly-odds" type="number" placeholder="2.0" step="0.1" min="1.01"></div>
+    </div>
+    <button class="btn wide" onclick="calculateKelly()" style="margin-top:12px">Рассчитать ставку</button>
+    <div id="kelly-result" style="margin-top:12px;display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="text-align:center;padding:12px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Kelly %</div>
+          <div id="kelly-pct" style="font-size:20px;font-weight:700;color:var(--cyan);margin-top:2px">0%</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+          <div style="font-size:10px;color:var(--ink3);text-transform:uppercase">Рекомендовано</div>
+          <div id="kelly-bet" style="font-size:20px;font-weight:700;color:var(--green);margin-top:2px">0 ₽</div>
+        </div>
+      </div>
+      <div id="kelly-edge" style="text-align:center;margin-top:8px;font-size:12px;color:var(--ink3)"></div>
+    </div>
+  </div>
+
+  <div class="glass-card" style="margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--ink2)">Настройки</div>
+      <button class="btn tint sm" onclick="saveKellySettings()" style="font-size:11px">Сохранить</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div><label class="fld">Макс. %</label><input class="inp" id="br-max-pct" type="number" value="5" min="1" max="20" style="font-size:14px"></div>
+      <div><label class="fld">Мин. кф</label><input class="inp" id="br-min-odds" type="number" value="1.5" step="0.1" min="1.01" style="font-size:14px"></div>
+      <div><label class="fld">Kelly доля</label><input class="inp" id="br-kelly-frac" type="number" value="0.25" step="0.05" min="0.05" max="1" style="font-size:14px"></div>
+    </div>
+  </div>
+
+  <div class="glass-card" style="margin-top:12px">
+    <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:12px">История операций</div>
+    <div id="br-transactions" style="max-height:300px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Deposit Modal -->
+<div class="del-overlay" id="deposit-modal" onclick="closeDepositModal(event)">
+  <div class="del-box" onclick="event.stopPropagation()" style="max-width:320px">
+    <p style="margin-bottom:16px">Пополнение банкролла</p>
+    <input class="inp" id="deposit-amount" type="number" placeholder="Сумма" min="1" style="margin-bottom:12px">
+    <div class="actions">
+      <button class="btn btn-cancel" onclick="closeDepositModal()">Отмена</button>
+      <button class="btn tint" onclick="confirmDeposit()">Пополнить</button>
+    </div>
+  </div>
+</div>
+
 <!-- Nav -->
 <nav class="tabs">
   <button class="active" data-pane="analysis" onclick="switchPane('analysis')">
@@ -604,6 +687,10 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
   <button data-pane="predictions" onclick="switchPane('predictions')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     Прогнозы
+  </button>
+  <button data-pane="bankroll" onclick="switchPane('bankroll')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    Банкролл
   </button>
 </nav>
 
@@ -665,6 +752,94 @@ function switchSport(sport){
 // ── Header scroll shadow ──
 window.addEventListener('scroll',()=>{document.querySelector('header').classList.toggle('scrolled',window.scrollY>10)});
 
+// ── Bankroll Management ──
+let bankrollLoaded=false;
+
+async function loadBankroll(){
+  try{
+    const r=await fetch('/api/bankroll');
+    const data=await r.json();
+    document.getElementById('br-balance').textContent=(data.balance||0).toLocaleString('ru-RU')+' ₽';
+
+    const tx=await fetch('/api/bankroll/transactions');
+    const txData=await tx.json();
+    const transactions=txData.transactions||[];
+
+    let bets=0,wins=0,losses=0;
+    transactions.forEach(t=>{
+      if(t.type==='bet')bets++;
+      if(t.type==='win')wins++;
+      if(t.type==='loss')losses++;
+    });
+    document.getElementById('br-bets-count').textContent=bets;
+    document.getElementById('br-wins-count').textContent=wins;
+    document.getElementById('br-losses-count').textContent=losses;
+
+    const container=document.getElementById('br-transactions');
+    if(transactions.length===0){
+      container.innerHTML='<div style="text-align:center;padding:20px;color:var(--ink3);font-size:13px">Нет операций</div>';
+    }else{
+      container.innerHTML=transactions.map(t=>{
+        const icons={deposit:'↓',withdrawal:'↑',bet:'→',win:'←',loss:'→',refund:'←'};
+        const colors={deposit:'var(--green)',withdrawal:'var(--red)',bet:'var(--amber)',win:'var(--green)',loss:'var(--red)',refund:'var(--cyan)'};
+        const labels={deposit:'Пополнение',withdrawal:'Вывод',bet:'Ставка',win:'Выигрыш',loss:'Проигрыш',refund:'Возврат'};
+        const sign=t.type==='win'||t.type==='deposit'||t.type==='refund'?'+':'-';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--sheetline)">'+
+          '<div style="display:flex;align-items:center;gap:10px">'+
+            '<div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.05);display:grid;place-items:center;font-size:14px;color:'+colors[t.type]+'">'+icons[t.type]+'</div>'+
+            '<div><div style="font-size:13px;font-weight:500">'+labels[t.type]+'</div>'+
+            '<div style="font-size:11px;color:var(--ink3)">'+(t.created_at||'').slice(0,16)+'</div></div></div>'+
+          '<div style="font-size:14px;font-weight:600;color:'+colors[t.type]+'">'+sign+Math.abs(t.amount).toLocaleString('ru-RU')+' ₽</div></div>';
+      }).join('');
+    }
+
+    if(data.settings){
+      document.getElementById('br-max-pct').value=data.settings.max_bet_pct||5;
+      document.getElementById('br-min-odds').value=data.settings.min_odds||1.5;
+      document.getElementById('br-kelly-frac').value=data.settings.kelly_fraction||0.25;
+    }
+  }catch(e){console.error('Bankroll load error:',e)}
+}
+
+function showDepositModal(){document.getElementById('deposit-modal').classList.add('open')}
+function closeDepositModal(e){if(!e||e.target===e.currentTarget)document.getElementById('deposit-modal').classList.remove('open')}
+
+async function confirmDeposit(){
+  const amount=parseFloat(document.getElementById('deposit-amount').value);
+  if(!amount||amount<=0)return;
+  await fetch('/api/bankroll/transaction',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'deposit',amount:amount,description:'Пополнение'})});
+  document.getElementById('deposit-amount').value='';
+  closeDepositModal();
+  loadBankroll();
+  showToast('Банкролл пополнен на '+amount.toLocaleString('ru-RU')+' ₽');
+}
+
+async function calculateKelly(){
+  const prob=parseFloat(document.getElementById('kelly-prob').value)/100;
+  const odds=parseFloat(document.getElementById('kelly-odds').value);
+  if(!prob||!odds||prob<=0||odds<=1)return;
+
+  const r=await fetch('/api/bankroll/kelly',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prob:prob,odds:odds})});
+  const data=await r.json();
+
+  document.getElementById('kelly-result').style.display='block';
+  document.getElementById('kelly-pct').textContent=data.kelly_pct+'%';
+  document.getElementById('kelly-bet').textContent=data.recommended_bet.toLocaleString('ru-RU')+' ₽';
+  document.getElementById('kelly-edge').textContent='Edge: '+data.edge+'%'+(data.is_viable?' ✓':' ✗ '+data.reason);
+  document.getElementById('kelly-edge').style.color=data.is_viable?'var(--green)':'var(--red)';
+}
+
+async function saveKellySettings(){
+  const max=parseFloat(document.getElementById('br-max-pct').value);
+  const min=parseFloat(document.getElementById('br-min-odds').value);
+  const frac=parseFloat(document.getElementById('br-kelly-frac').value);
+  await fetch('/api/bankroll/settings',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({max_bet_pct:max,min_odds:min,kelly_fraction:frac})});
+  showToast('Настройки сохранены');
+}
+
 // ── Pane switching ──
 let currentPane='analysis';
 let prematchLoaded=false,liveLoaded=false,predictionsLoaded=false;
@@ -678,6 +853,7 @@ function switchPane(name){
   if(name==='prematch'&&!prematchLoaded){prematchLoaded=true;loadTodayMatches()}
   if(name==='live'&&!liveLoaded){liveLoaded=true;loadLiveMatches()}
   if(name==='predictions'&&!predictionsLoaded){predictionsLoaded=true;loadPredictions()}
+  if(name==='bankroll'&&!bankrollLoaded){bankrollLoaded=true;loadBankroll()}
 }
 
 // ── AI Models ──
@@ -2016,6 +2192,7 @@ document.addEventListener('keydown',e=>{
     case '2':switchPane('prematch');break;
     case '3':switchPane('live');break;
     case '4':switchPane('predictions');break;
+    case '5':switchPane('bankroll');break;
     case 's':case 'S':if(!e.ctrlKey&&!e.metaKey){e.preventDefault();savePrediction()}break;
   }
 });
