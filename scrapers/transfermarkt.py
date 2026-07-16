@@ -13,8 +13,12 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
-from botasaurus.browser import browser, Driver
-from botasaurus.soupify import soupify
+try:
+    from botasaurus.browser import browser, Driver
+    from botasaurus.soupify import soupify
+    HAS_BOTASAURUS = True
+except ImportError:
+    HAS_BOTASAURUS = False
 
 
 TM_BASE = "https://www.transfermarkt.com"

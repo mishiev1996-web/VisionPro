@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Dict, Optional, Tuple
 
-from botasaurus.request import request, Request
+import requests as _requests
 
 
 METEO_BASE = "https://api.open-meteo.com/v1/forecast"
@@ -122,15 +122,14 @@ STADIUMS: Dict[str, Tuple[float, float]] = {
 }
 
 
-@request(cache=False, output=None, create_error_logs=False, max_retry=2, raise_exception=False)
-def _fetch_forecast(req: Request, data: dict) -> Optional[dict]:
+def _fetch_forecast(data: dict) -> Optional[dict]:
     lat, lon = data["lat"], data["lon"]
     when = data["when"]   # ISO date "2025-12-15"
     url = (f"{METEO_BASE}?latitude={lat}&longitude={lon}"
            f"&hourly=temperature_2m,precipitation,windspeed_10m"
            f"&start_date={when}&end_date={when}&timezone=auto")
     try:
-        resp = req.get(url, timeout=10)
+        resp = _requests.get(url, timeout=10)
         if resp.status_code != 200:
             return None
         return resp.json()

@@ -10,8 +10,12 @@ import re
 import time
 from typing import Dict, List, Optional
 
-from botasaurus.browser import browser, Driver
-from botasaurus.soupify import soupify
+try:
+    from botasaurus.browser import browser, Driver
+    from botasaurus.soupify import soupify
+    HAS_BOTASAURUS = True
+except ImportError:
+    HAS_BOTASAURUS = False
 
 
 FS_TENNIS_URL = "https://www.flashscore.com/tennis/"

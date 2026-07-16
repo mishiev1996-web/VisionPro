@@ -1,15 +1,12 @@
 """
 scrapers/understat.py — Understat API scraper for xG, schedule, results.
-
-Uses Botasaurus @request for Cloudflare bypass and retry logic.
 """
 from __future__ import annotations
 
 from typing import List, Dict, Any, Optional
 import json
 import time
-
-from botasaurus.request import request, Request
+import requests as _requests
 
 
 UNDERSTAT_BASE = "https://understat.com"
@@ -24,22 +21,24 @@ LEAGUES: Dict[str, Dict[str, Any]] = {
 }
 
 
-@request(cache=False, output=None, create_error_logs=False, max_retry=3,
-         raise_exception=False, parallel=4)
-def _fetch_batch(req: Request, data: dict) -> Optional[dict]:
-    """Batch fetch with Botasaurus — handles Cloudflare, retry, TLS fingerprint."""
-    url = data["url"]
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-    try:
-        r = req.get(url, headers=headers, timeout=20)
-        if r.status_code != 200:
-            return None
-        return r.json()
-    except Exception:
-        return None
+def _fetch_batch(data_list: list) -> list:
+    """Batch fetch with requests."""
+    results = []
+    for data in data_list:
+        url = data["url"]
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        try:
+            r = _requests.get(url, headers=headers, timeout=20)
+            if r.status_code == 200:
+                results.append(r.json())
+            else:
+                results.append(None)
+        except Exception:
+            results.append(None)
+    return results
 
 
 def fetch_understat_league(league_slug: str, season: int) -> Dict[str, Any]:

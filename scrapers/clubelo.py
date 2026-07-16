@@ -14,7 +14,7 @@ import io
 import time
 from typing import Dict, List, Optional, Tuple
 
-from botasaurus.request import request, Request
+import requests as _requests
 
 
 CLUBELO_BASE = "http://api.clubelo.com"
@@ -160,13 +160,10 @@ NAME_MAP: Dict[str, str] = {
 }
 
 
-# parallel=10 → 10× faster. Botasaurus pools sessions correctly so this is safe.
-@request(cache=False, output=None, create_error_logs=False, max_retry=2,
-         raise_exception=False, parallel=10)
-def _fetch_club_batch(req: Request, data: dict) -> Optional[str]:
+def _fetch_club_batch(data: dict) -> Optional[str]:
     name = data["name"]
     try:
-        resp = req.get(f"{CLUBELO_BASE}/{name}", timeout=15)
+        resp = _requests.get(f"{CLUBELO_BASE}/{name}", timeout=15)
         if resp.status_code != 200:
             return None
         return resp.text
