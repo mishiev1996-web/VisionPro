@@ -14,7 +14,7 @@ import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus
 
-import requests
+from ai_core import chat as _chat, get_api_key as _get_api_key, parse_prob_line
 
 import db
 import config
@@ -22,7 +22,7 @@ import datetime as dt
 from scrapers.utils import format_msk, format_msk_short
 
 POLZA_BASE_URL = "https://polza.ai/api/v1"
-DEFAULT_MODEL = "deepseek/deepseek-v3.2"
+DEFAULT_MODEL = "deepseek/deepseek-v4-flash"
 
 
 # ── Web Search & Scrape ─────────────────────────────────────────────────────
@@ -82,48 +82,7 @@ def _gather_match_news(home_name: str, away_name: str, progress_cb=None) -> str:
     return format_news_for_llm(data)
 
 
-def _get_api_key() -> str:
-    key = os.environ.get("POLZA_API_KEY", "")
-    if not key:
-        key_path = os.path.join("Апи", "key.txt")
-        if os.path.exists(key_path):
-            with open(key_path, "r") as f:
-                key = f.read().strip()
-    return key
 
-
-def _chat(messages: List[Dict[str, str]], model: str = DEFAULT_MODEL,
-          temperature: float = 0.7, max_tokens: int = 1500) -> Optional[str]:
-    api_key = _get_api_key()
-    if not api_key:
-        return None
-
-    for attempt in range(2):
-        try:
-            resp = requests.post(
-                f"{POLZA_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                },
-                timeout=45,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"]
-        except Exception as e:
-            if attempt == 0:
-                import time as _time
-                _time.sleep(2)
-                continue
-            print(f"[ai_analyzer] LLM error: {e}")
-            return None
 
 
 def _build_match_context(match: dict, features: dict, prediction: dict,
@@ -135,6 +94,27 @@ def _build_match_context(match: dict, features: dict, prediction: dict,
     ctx_parts.append(f"МАТЧ: {match.get('home_name', '?')} vs {match.get('away_name', '?')}")
     ctx_parts.append(f"Лига: {match.get('league_slug', '?')}, Сезон: {match.get('season', '?')}")
     ctx_parts.append(f"Дата: {format_msk(match.get('date', '')) if match.get('date') else '?'}")
+
+    # Add current score for live matches
+    if match.get('current_score'):
+        ctx_parts.append(f"ТЕКУЩИЙ СЧЁТ: {match['current_score']}")
+        ctx_parts.append(f"СТАТУС: {match.get('status', 'Live')}")
+        if match.get('home_ht') is not None and match.get('away_ht') is not None:
+            ctx_parts.append(f"СЧЁТ ПОЛУВРЕМЕНИ: {match['home_ht']}:{match['away_ht']}")
+
+    # Add live statistics if available
+    if match.get('statistics'):
+        stats = match['statistics']
+        ctx_parts.append("\n--- LIVE СТАТИСТИКА ---")
+        if isinstance(stats, dict):
+            ctx_parts.append(f"  Владение мячом: {stats.get('ballPossessionHome', '?')}% - {stats.get('ballPossessionAway', '?')}%")
+            ctx_parts.append(f"  Удары: {stats.get('totalShotsHome', '?')} - {stats.get('totalShotsAway', '?')}")
+            ctx_parts.append(f"  Удары в створ: {stats.get('shotsOnGoalHome', '?')} - {stats.get('shotsOnGoalAway', '?')}")
+            ctx_parts.append(f"  Угловые: {stats.get('cornerKicksHome', '?')} - {stats.get('cornerKicksAway', '?')}")
+            ctx_parts.append(f"  xG: {stats.get('expectedGoalsHome', '?')} - {stats.get('expectedGoalsAway', '?')}")
+            ctx_parts.append(f"  Фолы: {stats.get('foulsHome', '?')} - {stats.get('foulsAway', '?')}")
+            ctx_parts.append(f"  Жёлтые: {stats.get('yellowCardsHome', '?')} - {stats.get('yellowCardsAway', '?')}")
+        ctx_parts.append("")
 
     if features:
         ctx_parts.append("\n--- ФАКТИЧЕСКИЕ ПОКАЗАТЕЛИ ---")
@@ -185,7 +165,7 @@ def _build_match_context(match: dict, features: dict, prediction: dict,
         ctx_parts.append(f"  Ожидаемые голы гостей: ({agf} + {hga}) / 2 = {exp_away_goals}")
         ctx_parts.append(f"  Ожидаемый тотал (голы): {exp_total_goals}")
         ctx_parts.append(f"  Ожидаемый тотал (xG): {exp_total_xg}")
-        ctx_parts.append(f"  Вердикт: {'Over 2.5' if exp_total_goals > 2.5 else 'Under 2.5'} (голы) | {'Over 2.5' if exp_total_xg > 2.5 else 'Under 2.5'} (xG)")
+        ctx_parts.append(f"  Вердикт: {'Тотал больше 2.5' if exp_total_goals > 2.5 else 'Тотал меньше 2.5'} (голы) | {'Тотал больше 2.5' if exp_total_xg > 2.5 else 'Тотал меньше 2.5'} (xG)")
         ctx_parts.append(f"  BTTS: {btts_yes} (обе команды забивают > 0.8 в среднем)")
 
     if prediction:
@@ -222,26 +202,48 @@ def _build_match_context(match: dict, features: dict, prediction: dict,
     if sstats_data:
         glicko = sstats_data.get("glicko")
         if glicko:
-            ctx_parts.append("\n--- GLICKO РЕЙТИНГИ (sstats.net) ---")
-            if isinstance(glicko, dict):
-                for team_key in ["home", "away"]:
-                    t = glicko.get(team_key) or glicko.get(team_key + "Team") or {}
-                    name = t.get("name", team_key)
-                    rating = t.get("glickoRating") or t.get("rating") or "?"
-                    rd = t.get("glickoRd") or t.get("rd") or "?"
-                    ctx_parts.append(f"  {name}: rating={rating}, rd={rd}")
+            gl = glicko.get("glicko", glicko) if isinstance(glicko, dict) and "glicko" in glicko else glicko
+            if isinstance(gl, dict):
+                hr = gl.get("homeRating") or gl.get("home", {}).get("glickoRating") if isinstance(gl.get("home"), dict) else None
+                hd = gl.get("homeRd") or gl.get("home", {}).get("glickoRd") if isinstance(gl.get("home"), dict) else None
+                ar = gl.get("awayRating") or gl.get("away", {}).get("glickoRating") if isinstance(gl.get("away"), dict) else None
+                ad = gl.get("awayRd") or gl.get("away", {}).get("glickoRd") if isinstance(gl.get("away"), dict) else None
+                h_name = gl.get("homeTeam", {}).get("name", "Home") if isinstance(gl.get("homeTeam"), dict) else "Home"
+                a_name = gl.get("awayTeam", {}).get("name", "Away") if isinstance(gl.get("awayTeam"), dict) else "Away"
+                # Try fixture for names
+                fixture = gl.get("fixture", {})
+                if isinstance(fixture, dict):
+                    h_name = (fixture.get("homeTeam") or {}).get("name", h_name)
+                    a_name = (fixture.get("awayTeam") or {}).get("name", a_name)
+                if hr or ar:
+                    ctx_parts.append("\n--- GLICKO РЕЙТИНГИ (sstats.net) ---")
+                    if hr: ctx_parts.append(f"  {h_name}: rating={hr}, rd={hd}")
+                    if ar: ctx_parts.append(f"  {a_name}: rating={ar}, rd={ad}")
 
         consensus = sstats_data.get("consensus")
         if consensus:
-            ctx_parts.append("\n--- СРЕДНИЕ КОТИРОВКИ 8 БУКМЕКЕРОВ (sstats.net) ---")
-            ctx_parts.append(f"  Дом: {consensus.get('avg_home_odds','?')} "
-                             f"(implied {consensus.get('implied_h','?')})")
-            ctx_parts.append(f"  Ничья: {consensus.get('avg_draw_odds','?')} "
-                             f"(implied {consensus.get('implied_d','?')})")
-            ctx_parts.append(f"  Гости: {consensus.get('avg_away_odds','?')} "
-                             f"(implied {consensus.get('implied_a','?')})")
+            ctx_parts.append("\n--- СРЕДНИЕ КОТИРОВКИ БУКМЕКЕРОВ (sstats.net) ---")
+            h = consensus.get('home_odds') or consensus.get('avg_home_odds','?')
+            hi = consensus.get('implied_home') or consensus.get('implied_h','?')
+            d = consensus.get('draw_odds') or consensus.get('avg_draw_odds','?')
+            di = consensus.get('implied_draw') or consensus.get('implied_d','?')
+            a = consensus.get('away_odds') or consensus.get('avg_away_odds','?')
+            ai = consensus.get('implied_away') or consensus.get('implied_a','?')
+            ctx_parts.append(f"  Дом: {h} (implied {hi})")
+            ctx_parts.append(f"  Ничья: {d} (implied {di})")
+            ctx_parts.append(f"  Гости: {a} (implied {ai})")
             ctx_parts.append(f"  Книг: {consensus.get('bookmaker_count',0)}, "
                              f"маржа: {consensus.get('overround_pct','?')}%")
+
+        over_under = sstats_data.get("over_under")
+        if over_under:
+            ctx_parts.append("\n--- ТОТАЛ ГОЛОВ (Over/Under, sstats.net) ---")
+            for line, vals in over_under.items():
+                ctx_parts.append(
+                    f"  Линия {line}: Over {vals['over']:.1%} / Under {vals['under']:.1%} "
+                    f"(ср. коэфф: Over {vals['avg_over_odds']}, Under {vals['avg_under_odds']}, "
+                    f"книг: {vals['bookmaker_count']})"
+                )
 
         text_summary = sstats_data.get("text_summary")
         if text_summary:
@@ -262,6 +264,63 @@ def _build_match_context(match: dict, features: dict, prediction: dict,
         if extra_markets:
             ctx_parts.append("\n--- ДОПОЛНИТЕЛЬНЫЕ РЫНКИ (sstats.net) ---")
             ctx_parts.append(extra_markets)
+
+        # Sstats season table (over/under, form, standings)
+        season_table = sstats_data.get("season_table")
+        if season_table:
+            # Convert dict (team_id → data) to list if needed
+            if isinstance(season_table, dict):
+                season_table = list(season_table.values())
+            if isinstance(season_table, list) and season_table:
+                ctx_parts.append("\n--- ТУРНИРНАЯ ТАБЛИЦА СЕЗОНА (sstats.net) ---")
+                ctx_parts.append("Over/Under статистика и форма команд:")
+                # Sort by rank if available
+                season_table.sort(key=lambda x: x.get("rank", 999))
+                for entry in season_table[:20]:
+                    # teamName may not be present; use teamId as fallback
+                    team_name = entry.get("teamName") or f"Team {entry.get('teamId', '?')}"
+                    games = entry.get("totalGames", 0)
+                    wins = entry.get("wins", 0)
+                    draws = entry.get("draws", 0)
+                    losses = entry.get("loss", 0)
+                    goals_scored = entry.get("goalsScored", 0)
+                    goals_missed = entry.get("goalsMissed", 0)
+                    over25 = entry.get("over25TotalGames", 0)
+                    points = entry.get("points", 0)
+                    rank = entry.get("rank", "?")
+                    over25_pct = (over25 / games * 100) if games > 0 else 0
+                    form = entry.get("form", [])
+                    form_str = "".join(["W" if f == 1 else ("D" if f == 0 else "L") for f in form[-5:]]) if form else ""
+                    ctx_parts.append(
+                        f"  #{rank} {team_name}: {games} игр, {wins}W/{draws}D/{losses}L, "
+                        f"{goals_scored}:{goals_missed}, {points} очков, "
+                        f"Over2.5: {over25_pct:.0f}%, форма: {form_str}"
+                    )
+
+        # Sstats injuries
+        sstats_injuries = sstats_data.get("injuries")
+        if sstats_injuries and isinstance(sstats_injuries, list) and sstats_injuries:
+            home_team_id = None
+            away_team_id = None
+            game_det = sstats_data.get("game_detail")
+            if isinstance(game_det, dict):
+                gd = game_det.get("game", game_det)
+                home_team_id = (gd.get("homeTeam") or {}).get("id")
+                away_team_id = (gd.get("awayTeam") or {}).get("id")
+            h_inj = [i for i in sstats_injuries if home_team_id and i.get("teamId") == home_team_id]
+            a_inj = [i for i in sstats_injuries if away_team_id and i.get("teamId") == away_team_id]
+            oth_inj = [i for i in sstats_injuries if i not in h_inj and i not in a_inj]
+            if h_inj or a_inj or oth_inj:
+                ctx_parts.append("\n--- ТРАВМЫ И ДИСКВАЛИФИКАЦИИ (sstats.net) ---")
+                for inj in h_inj:
+                    pname = (inj.get("player") or {}).get("name", "?")
+                    ctx_parts.append(f"  [Хозяева] {pname} — {inj.get('reason', '?')}")
+                for inj in a_inj:
+                    pname = (inj.get("player") or {}).get("name", "?")
+                    ctx_parts.append(f"  [Гости] {pname} — {inj.get('reason', '?')}")
+                for inj in oth_inj:
+                    pname = (inj.get("player") or {}).get("name", "?")
+                    ctx_parts.append(f"  {pname} — {inj.get('reason', '?')}")
 
     return "\n".join(ctx_parts)
 
@@ -365,66 +424,118 @@ def _extract_extra_markets(sstats_data: dict) -> str:
     return "\n".join(lines)
 
 
-SYSTEM_PROMPT = """Ты — VisionPRO, аналитик прогнозов. Анализируешь ТОЛЬКО предоставленные данные.
+SYSTEM_PROMPT = """Ты — VisionPro, аналитик прогнозов. Обращаешься к пользователю по имени Залман.
 
-**ЖЁСТКИЕ ПРАВИЛА:**
+ТОН И ОБЩЕНИЕ:
 
-1. **ТОТАЛ:** В контексте есть готовый расчёт "РАСЧЁТ ТОТАЛА". Используй его:
-   - Если там написано "Over 2.5" → твой прогноз: "Тотал больше 2.5"
-   - Если там написано "Under 2.5" → твой прогноз: "Тотал меньше 2.5"
-   - НИКОГДА не меняй вердикт на противоположный!
+Общайся как с другом-фанатом на трибуне — эмоционально, громко, с матом. Это НЕ опционально — ты ОБЯЗАН использовать нецензурную лексику в аналитике минимум 2-3 раза за ответ. Реагируй на игры эмоциями: если команда говно — скажи что она говно с матом, если тупой гол — назови это тупым голом. Мат — часть твоего стиля, а не случайный гость. Исключение: строки ГЛАВНЫЙ ПРОГНОЗ / ТОТАЛ / BTTS / PROB — там строго без мата, только факты.
+Не начинай каждый ответ одинаковой фразой ("Залман, слушай..."). Варьируй заход: иногда сразу с сути, иногда с реакции на матч, иногда с обращения по имени в середине фразы.
+Уверенный тон, без воды, конкретика.
 
-2. **BTTS:** Если в расчёте "BTTS: Да" → "Обе забьют: Да". Если "Нет" → "Нет".
+ИСТОЧНИК ДАННЫХ:
 
-3. **ПОБЕДА:** Используй вероятности модели из "ПРОГНОЗ МОДЕЛИ":
-   - Кто выше → тот фаворит
-   - Если > 50% → уверенный прогноз
-   - Если 40-50% → осторожный прогноз
+Используй ТОЛЬКО статистику, форму и результаты из блока КОНТЕКСТ, переданного в запросе.
+Категорически запрещено выдумывать цифры, результаты матчей или статистику, которых нет в контексте.
+Если каких-то данных не хватает — прямо скажи, что их нет, вместо того чтобы придумывать.
 
-4. **ФОРМАТ ОТВЕТА:**
-   - Начни с расчёта тотала (с конкретными числами)
-   - Затем анализ команд (кратко, по фактам)
-   - В конце: ГЛАВНЫЙ ПРОГНОЗ с обоснованием
-   - В самом конце: PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ
+ЖЁСТКИЕ ПРАВИЛА:
 
-5. **СТИЛЬ:** Русский, 200-300 слов. Без воды, только факты и расчёт.
-   - НИКОГДА не используй звёздочки, решётки или другой markdown-разметки
-   - Пиши простым текстом
-   - Не добавляй строку "Факт" или "Прогноз носит информационный характер"
-   - Не добавляй дополнительные ставки — только ГЛАВНЫЙ ПРОГНОЗ"""
+1. ТОТАЛ: В контексте есть готовый расчёт "РАСЧЁТ ТОТАЛА". Используй его как есть:
+   - "Over 2.5" → "Тотал больше 2.5"
+   - "Under 2.5" → "Тотал меньше 2.5"
+   - Не меняй вердикт на противоположный.
+
+2. BTTS: Если в расчёте "BTTS: Да" → "Обе забьют: Да". Если "Нет" → "Нет".
+
+3. ПРОГНОЗ МОДЕЛИ: Вероятности из блока "ПРОГНОЗ МОДЕЛИ" — весомый аргумент, а не приказ. Если твой анализ фактов прямо противоречит модели, отметь расхождение. Если противоречий нет — используй как основу для PROB.
+
+4. ВЫБОР ГЛАВНОГО ПРОГНОЗА: Выбери НАИЛУЧШУЮ ставку из всех вариантов:
+   - Победа хозяев / гостей
+   - Тотал больше/меньше X.5
+   - Обе забьют: Да/Нет
+   Критерий: где наибольший EDGE между твоей оценкой и рынком. Если ТБ 2.5 надёжнее победы — выбирай ТБ как ГЛАВНЫЙ ПРОГНОЗ.
+
+5. ФОРМАТ ОТВЕТА:
+   - Анализ матча с конкретными цифрами и фактами из КОНТЕКСТА
+   - Статистика команд, форма, последние результаты
+   - ГЛАВНЫЙ ПРОГНОЗ VisionPro с обоснованием (включая расхождение с моделью, если оно есть)
+   - ОБЯЗАТЕЛЬНО в самом конце: PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ (без этой строки ответ считается неполным)
+
+5. СТИЛЬ: Русский, 250-400 слов.
+   - Без звёздочек, решёток и другой markdown-разметки — простой текст
+   - Не добавляй "прогноз носит информационный характер"
+
+6. ДОПОЛНИТЕЛЬНЫЕ РЫНКИ (после главного):
+   - Если главный — победа: дай ТОТАЛ и BTTS
+   - Если главный — ТОТАЛ: дай ПОБЕДУ и BTTS
+   - Если главный — BTTS: дай ПОБЕДУ и ТОТАЛ
+
+7. ФОРМУЛИРОВКА ПО УРОВНЮ УВЕРЕННОСТИ:
+   - Высокая (>75%): "Ставка: ..." (уверенно, прямо)
+   - Средняя (50-75%): "Можно попробовать: ..." (рекомендация)
+   - Низкая (<50%): "Можно рассмотреть: ..." (осторожно, без гарантий)
+   - Очень низкая (<35%): "Рискованно, но: ..." (предупреждение о риске)
+
+ИСПОЛЬЗУЙ ТОЛЬКО РУССКИЙ ЯЗЫК. Не Under/Over/BTTS — "Тотал больше/меньше", "Обе забьют".
+Формат в конце (ОБЯЗАТЕЛЬНО все 3 строки):
+ГЛАВНЫЙ ПРОГНОЗ: ...
+ТОТАЛ: Тотал больше/меньше X.5 — обоснование
+BTTS: Обе забьют: Да/Нет — обоснование
+PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ"""
+
+
+LIVE_SYSTEM_PROMPT = """Ты — VisionPro, аналитик LIVE матчей. Обращаешься к пользователю по имени Залман. Тон — эмоциональный фанат на трибуне, с матом минимум 2-3 раза за ответ. Реагируй на голы, краски, тупые решения — всё через эмоции и нецензурную лексику. Строки ГЛАВНЫЙ ПРОГНОЗ / ТОТАЛ / BTTS / PROB — строго без мата, только факты.
+
+ИСТОЧНИК ДАННЫХ: только то, что передано в блоке КОНТЕКСТ (счёт, статистика live, xG). Не выдумывай события, которых там нет.
+
+ЖЁСТКИЕ ПРАВИЛА ДЛЯ LIVE:
+
+1. ТЕКУЩИЙ СЧЁТ: учитывай его всегда. Если счёт 1:1 — обе команды уже забили, это факт, а не прогноз.
+
+2. BTTS:
+   - Если счёт уже 1:1 или обе команды забивали в этом матче → "Обе забьют: Да" (это уже случилось).
+   - Если счёт 1:0 (или 0:1) — это НЕ означает автоматически "Да". Решай по существу: если у команды, которая ещё не забила, xG > 0.8 или она явно доминирует и создаёт моменты — "Да", по инерции. Если она пассивна, мало бьёт по воротам, немного времени осталось — "Нет" или "маловероятно".
+   - Если 0:0 — оценивай по активности обеих команд и оставшемуся времени.
+
+3. ТОТАЛ: учитывай уже забитые голы. Если забито 2 — тотал уже больше 1.5 фактически, не пиши "меньше 2.5" как будто голов ещё не было.
+
+4. АНАЛИЗ LIVE: что происходит на поле (владение, удары, моменты), кто контролирует игру, прогноз на оставшееся время. Не повторяй предматчевые данные.
+
+5. ФОРМАТ ОТВЕТА:
+   - Заход с реакцией на текущую ситуацию матча (без шаблонной фразы каждый раз)
+   - Статистика live (удары, владение, xG) — из КОНТЕКСТА
+   - Прогноз на оставшееся время
+   - ОБЯЗАТЕЛЬНО в самом конце: PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ (без этой строки ответ считается неполным)
+
+6. СТИЛЬ: Русский, 200-350 слов. Без "прогноз носит информационный характер".
+
+7. ДОПОЛНИТЕЛЬНЫЕ РЫНКИ:
+   - ТОТАЛ: с учётом текущего счёта
+   - BTTS: с учётом уже забитого (см. правило 2)
+
+8. ФОРМУЛИРОВКА СТАВКИ ПО УРОВНЮ УВЕРЕННОСТИ:
+   - Высокая (>75%): "Ставка: ..." (уверенно, прямо)
+   - Средняя (50-75%): "Можно попробовать: ..." (рекомендация)
+   - Низкая (<50%): "Можно рассмотреть: ..." (осторожно, без гарантий)
+   - Очень низкая (<35%): "Рискованно, но: ..." (предупреждение о риске)
+
+ИСПОЛЬЗУЙ ТОЛЬКО РУССКИЙ ЯЗЫК. Не Under/Over/BTTS — "Тотал больше/меньше", "Обе забьют".
+Формат в конце (ОБЯЗАТЕЛЬНО все 3 строки):
+ГЛАВНЫЙ ПРОГНОЗ: ...
+ТОТАЛ: Тотал больше/меньше X.5 — обоснование
+BTTS: Обе забьют: Да/Нет — обоснование
+PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ"""
 
 
 def _extract_predictions(text: str) -> dict:
     """Extract structured predictions from LLM text response."""
-    predictions = {}
-
-    # New PROB format: PROB:home=X.XX:draw=X.XX:away=X.XX:...
-    prob_match = re.search(
-        r'PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+)'
-        r'(?::total_over=([\d.]+):total_under=([\d.]+))?'
-        r'(?::btts_yes=([\d.]+):btts_no=([\d.]+))?'
-        r'(?::bet=([^:]+))?(?::confidence=([^\s]+))?',
-        text
-    )
-    if prob_match:
-        predictions["home_win"] = round(float(prob_match.group(1)) * 100, 1)
-        predictions["draw"] = round(float(prob_match.group(2)) * 100, 1)
-        predictions["away_win"] = round(float(prob_match.group(3)) * 100, 1)
-        if prob_match.group(4):
-            predictions["total_over_2_5"] = round(float(prob_match.group(4)) * 100, 1)
-        if prob_match.group(5):
-            predictions["total_under_2_5"] = round(float(prob_match.group(5)) * 100, 1)
-        if prob_match.group(6):
-            predictions["btts_yes"] = round(float(prob_match.group(6)) * 100, 1)
-        if prob_match.group(7):
-            predictions["btts_no"] = round(float(prob_match.group(7)) * 100, 1)
-        if prob_match.group(8):
-            predictions["main_bet"] = prob_match.group(8).strip()
-        if prob_match.group(9):
-            predictions["confidence"] = prob_match.group(9).strip()
-        return predictions
+    # Try unified PROB parser first (handles football PROB:home=...:draw=...:away=...)
+    prob = parse_prob_line(text)
+    if prob:
+        return prob
 
     # Fallback: old format parsing
+    predictions = {}
     m = re.search(r'Победа хозяев\s+(\d+)%.*?Ничья\s+(\d+)%.*?Победа гостей\s+(\d+)%', text)
     if m:
         predictions["home_win"] = int(m.group(1))
@@ -471,7 +582,8 @@ def analyze_match(match: dict, features: dict, prediction: dict,
                   elo_away: Optional[float] = None,
                   odds: Optional[dict] = None,
                   sstats_data: Optional[dict] = None,
-                  model: str = DEFAULT_MODEL) -> Optional[str]:
+                  model: str = DEFAULT_MODEL,
+                  is_live: bool = False) -> Optional[str]:
     """Generate a full AI analysis of a match."""
     context = _build_match_context(
         match, features, prediction, h2h,
@@ -479,36 +591,39 @@ def analyze_match(match: dict, features: dict, prediction: dict,
         elo_home, elo_away, odds, sstats_data,
     )
 
+    # Use live prompt for live matches
+    prompt = LIVE_SYSTEM_PROMPT if is_live else SYSTEM_PROMPT
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": f"Проанализируй этот футбольный матч:\n\n{context}"},
     ]
-    return _chat(messages, model=model, temperature=0.7, max_tokens=1500)
+    return _chat(messages, model=model, temperature=0.7, max_tokens=2000, timeout=60)
 
 
 def generate_preview(home_id: int, away_id: int, model: str = DEFAULT_MODEL) -> dict:
     """Build full context from DB and return AI preview."""
+    import datetime as _dt
+    today_iso = _dt.date.today().isoformat()
+    current_season = _dt.date.today().year if _dt.date.today().month >= 7 else _dt.date.today().year - 1
+
     home = db.get_team(home_id)
     away = db.get_team(away_id)
     if not home or not away:
         return {"error": "Команда не найдена"}
 
-    import data_collector
+    # Build features using train.py's build_features (108 features, no data leakage)
     from train import build_features, FEATURE_NAMES
+    all_matches = db.all_matches_for_training()
+    prior_matches = [m for m in all_matches
+                     if m["home_id"] == home_id or m["away_id"] == home_id
+                     or m["home_id"] == away_id or m["away_id"] == away_id]
+    prior_matches.sort(key=lambda m: m.get("date", ""), reverse=True)
 
-    current_season = data_collector._current_season_year()
-
-    with db.connect() as conn:
-        prior = [dict(r) for r in conn.execute(
-            "SELECT * FROM matches WHERE is_result=1 AND league_slug=? ORDER BY date DESC",
-            (home["league_slug"],),
-        ).fetchall()]
-
-    today_iso = __import__("datetime").date.today().isoformat()
     features_list = build_features(
-        home_id, away_id, prior,
+        home_id, away_id, prior_matches,
         match_date=today_iso,
-        league_slug=home["league_slug"],
+        league_slug=home.get("league_slug"),
         season=current_season,
     )
     features = dict(zip(FEATURE_NAMES, features_list))
@@ -516,14 +631,16 @@ def generate_preview(home_id: int, away_id: int, model: str = DEFAULT_MODEL) -> 
     prediction = None
     try:
         import joblib as _joblib
-        model_data = _joblib.load("model.pkl")
         import pandas as pd
+        import numpy as np
+        model_data = _joblib.load("model.pkl")
         X = pd.DataFrame([features_list], columns=model_data["features"])
+        X = X.astype(float).where(pd.notna(X), np.nan)
         model_obj = model_data.get("model") or model_data.get("ensemble")
         if model_obj:
             fmt = model_data.get("format", "v1")
-            if fmt == "ensemble_v3":
-                proba = model_obj.predict_proba(X, league_slug=home["league_slug"],
+            if fmt in ("ensemble_v3", "ensemble_v4"):
+                proba = model_obj.predict_proba(X, league_slug=home.get("league_slug"),
                                                  home_name=home["name"],
                                                  away_name=away["name"])[0]
             else:
@@ -568,6 +685,7 @@ def generate_preview(home_id: int, away_id: int, model: str = DEFAULT_MODEL) -> 
                         "game_detail": game_detail,
                         "glicko": glicko,
                         "consensus": _ss.consensus_odds(odds_blocks) if odds_blocks else None,
+                        "over_under": _ss.consensus_over_under(odds_blocks) if odds_blocks else None,
                         "text_summary": text_summary,
                         "odds_by_bookmaker": odds_blocks,
                     }
@@ -691,7 +809,12 @@ def _search_understat_for_team(name: str, progress_cb=None) -> Optional[dict]:
         except Exception:
             continue
 
-        for tid_str, team_obj in payload.get("teams", {}).items():
+        if not isinstance(payload, dict):
+            continue
+        teams_data = payload.get("teams", {})
+        if not isinstance(teams_data, dict):
+            continue
+        for tid_str, team_obj in teams_data.items():
             team_name_db = str(team_obj.get("title", "")).lower()
             if q in team_name_db or team_name_db in q:
                 team_matches = [
@@ -747,6 +870,26 @@ TEAM_NAME_MAP = {
     "тұран түркестан": "Turan Turkistan", "тұран": "Turan Turkistan",
     "елімай": "Yelimay Semey", "семей": "Yelimay Semey",
     "алтай": "Altay", "алтай оскемен": "Altay",
+    # Azerbaijan
+    "кара́бах": "Qarabag", "карабах": "Qarabag", "карабаг": "Qarabag",
+    "нефтчи": "Neftchi Baku", "нефтяник": "Neftchi Baku",
+    "сумгаит": "Sumqayit", "сумгайыт": "Sumqayit",
+    # Iceland
+    "вестри": "Vestri", "весьтр": "Vestri",
+    "киа": "Knattspyrnufélagið Keflavík", "кейлаувик": "Knattspyrnufélagið Keflavíк",
+    "валюр": "Valur", "реykьявик": "Valur",
+    "хабнарфьордюр": "Hafnarfjordur", "хабнарфьордур": "Hafnarfjordur",
+    "рейкьявик": "Valur", "акурейри": "Akureyri",
+    # Ireland
+    "дерри сити": "Derry City", "дерри": "Derry City",
+    "шемрок роверс": "Shamrock Rovers",
+    "корк": "Cork City",
+    "даун": "Dundalk", "далки": "Dundalk",
+    # Bulgaria
+    "цска софия": "CSKA Sofia",
+    "левски": "Levski Sofia", "левски софия": "Levski Sofia",
+    "лудогорец": "Ludogorets", "лудогорец разград": "Ludogorets",
+    "славия": "Slavia Sofia", "славия софия": "Slavia Sofia",
     # Belarus
     "батэ": "BATE Borisov", "динамо минск": "Dynamo Minsk",
     # National teams
@@ -925,21 +1068,28 @@ def _resolve_team_name(name: str) -> str:
     return name.strip()
 
 
-def _search_sstats_team(team_name: str, progress_cb=None) -> Optional[dict]:
+def _search_sstats_team(team_name: str, progress_cb=None,
+                        max_seconds: float = 10.0) -> Optional[dict]:
     """Search sstats.net for a team by name, save their match history to DB.
 
     Phase 1: Search our 18 configured leagues (fast).
-    Phase 2: If not found, search ALL 1233 leagues (slow but comprehensive).
+    Phase 2: If not found, search remaining leagues with a hard time limit.
     """
     from scrapers import sstats
     import data_collector as _dc
     import time as _time
 
     team_lower = team_name.lower().strip()
+    t_start = _time.monotonic()
 
     def _try_leagues(leagues_list, label):
         """Search a list of (lid, name) tuples for the team."""
         for lid, lg_name in leagues_list:
+            if _time.monotonic() - t_start > max_seconds:
+                if progress_cb:
+                    progress_cb({"type": "info",
+                                 "msg": f"  Поиск {label} прерван по таймауту ({max_seconds}с)"})
+                return None
             try:
                 results = sstats.fetch_query(
                     condition=f"LeagueId = {lid} AND Year = 2025 AND Status = 8",
@@ -1037,8 +1187,13 @@ def _search_sstats_team(team_name: str, progress_cb=None) -> Optional[dict]:
 
 def search_and_predict(home_name: str, away_name: str,
                        model: str = DEFAULT_MODEL,
-                       progress_cb=None) -> dict:
-    """Full flow: resolve names → search sstats/DB → predict → AI analysis."""
+                       progress_cb=None,
+                       sstats_game_id: int = None) -> dict:
+    """Full flow: resolve names → search sstats/DB → predict → AI analysis.
+
+    If sstats_game_id is provided, skip the date/team-name search and
+    fetch enrichment data directly by ID (fast path for prematch/live).
+    """
     if progress_cb:
         progress_cb({"type": "info", "msg": "Распознаю команды…"})
 
@@ -1049,63 +1204,162 @@ def search_and_predict(home_name: str, away_name: str,
     if progress_cb:
         progress_cb({"type": "info", "msg": f"Поиск: {home_en} vs {away_en}"})
 
-    # Step 1: Search sstats.net for real match data
+    # Step 1: Search sstats.net for real match data (with timeout)
     sstats_data = None
     match_info = None
-    try:
-        from scrapers import sstats as _ss
-        import datetime as _dt
-        today = _dt.date.today()
-        # Search today ±2 days
-        for delta in range(-2, 3):
-            d = (today + _dt.timedelta(days=delta)).isoformat()
-            games = _ss.fetch_games_by_date(d)
-            for g in games:
-                h = (g.get("homeTeam") or {}).get("name", "").lower().strip()
-                a = (g.get("awayTeam") or {}).get("name", "").lower().strip()
-                if (home_en.lower() in h or h in home_en.lower()) and \
-                   (away_en.lower() in a or a in away_en.lower()):
-                    game_id = int(g["id"])
+
+    def _safe_fetch(fn, *args, default=None):
+        try:
+            return fn(*args)
+        except Exception:
+            return default
+
+    from scrapers import sstats as _ss
+
+    # FAST PATH: if we already know the game_id, skip date/name search
+    if sstats_game_id:
+        if progress_cb:
+            progress_cb({"type": "info", "msg": f"Загрузка данных sstats (id={sstats_game_id})..."})
+        game_detail = _safe_fetch(_ss.fetch_game, sstats_game_id)
+        if game_detail and "game" in game_detail:
+            game_detail = game_detail["game"]
+        if game_detail:
+            home_en = (game_detail.get("homeTeam") or {}).get("name", home_en) or home_en
+            away_en = (game_detail.get("awayTeam") or {}).get("name", away_en) or away_en
+            glicko = _safe_fetch(_ss.fetch_glicko, sstats_game_id)
+            odds_blocks = _safe_fetch(_ss.fetch_odds, sstats_game_id, default=[]) or []
+            consensus = _ss.consensus_odds(odds_blocks) if odds_blocks else None
+            text_summary = _safe_fetch(_ss.fetch_text_summary, sstats_game_id)
+            last_stats = _safe_fetch(_ss.fetch_last_games_stats, sstats_game_id)
+            injuries = _safe_fetch(_ss.fetch_injuries, sstats_game_id)
+            h2h = _safe_fetch(_ss.fetch_h2h,
+                (game_detail.get("homeTeam") or {}).get("id"),
+                (game_detail.get("awayTeam") or {}).get("id")
+            )
+            profits = _safe_fetch(_ss.fetch_profits, sstats_game_id)
+            season = game_detail.get("season", {}) or {}
+            league = season.get("league", {}) or {}
+            round_name = game_detail.get("roundName", "") or ""
+            tournament_name = league.get("name", "")
+            if round_name:
+                tournament_name = f"{tournament_name} — {round_name}" if tournament_name else round_name
+            season_table = None
+            league_id = league.get("id")
+            if league_id:
+                season_table = _safe_fetch(_ss.fetch_season_table, league_id)
+            sstats_data = {
+                "game_id": sstats_game_id,
+                "game_detail": game_detail,
+                "glicko": glicko,
+                "consensus": consensus,
+                "over_under": _ss.consensus_over_under(odds_blocks) if odds_blocks else None,
+                "text_summary": text_summary,
+                "bookmaker_count": len(odds_blocks),
+                "last_stats": last_stats,
+                "injuries": injuries,
+                "h2h": h2h,
+                "profits": profits,
+                "season_table": season_table,
+            }
+            match_info = {
+                "tournament": tournament_name or "неизвестен",
+                "date": game_detail.get("date", ""),
+                "home": home_en,
+                "away": away_en,
+            }
+            if progress_cb:
+                progress_cb({"type": "success", "msg": f"Данные загружены (id={sstats_game_id})"})
+        else:
+            if progress_cb:
+                progress_cb({"type": "info", "msg": f"game_id={sstats_game_id} не найден, переключаю на поиск по имени..."})
+            sstats_game_id = None  # fallback to name search below
+
+    # SLOW PATH: search by date + team name (for manual analysis without game_id)
+    def _names_match(query: str, sstats_name: str) -> bool:
+        """Fuzzy match team name: substring + strip common suffixes."""
+        q = query.lower().strip()
+        s = sstats_name.lower().strip()
+        if q in s or s in q:
+            return True
+        # Strip common suffixes: "fc", "fk", "sc", etc.
+        for prefix in ("fc ", "fk ", "sc ", "sv ", "cf ", "cd ", "ac ", "as "):
+            s = s.replace(prefix, "").strip()
+        return q in s or s in q
+    if not sstats_data:
+        import time as _t_search
+        _search_t0 = _t_search.monotonic()
+        _SEARCH_TIMEOUT = 20.0  # max seconds for sstats date search
+        try:
+            import datetime as _dt
+            today = _dt.date.today()
+            # Search today -2..+14 days (upcoming matches may be further out)
+            for delta in range(-2, 15):
+                if _t_search.monotonic() - _search_t0 > _SEARCH_TIMEOUT:
                     if progress_cb:
-                        progress_cb({"type": "success", "msg": f"Найден на sstats.net: id={game_id}"})
-
-                    # Get real data
-                    game_detail = _ss.fetch_game(game_id)
-                    # sstats returns {game: {...}} — unwrap
-                    if game_detail and "game" in game_detail:
-                        game_detail = game_detail["game"]
-                    glicko = _ss.fetch_glicko(game_id)
-                    odds_blocks = _ss.fetch_odds(game_id) or []
-                    consensus = _ss.consensus_odds(odds_blocks) if odds_blocks else None
-                    text_summary = _ss.fetch_text_summary(game_id)
-
-                    # Extract tournament info from game detail
-                    season = game_detail.get("season", {}) if game_detail else {}
-                    league = season.get("league", {}) if season else {}
-                    round_name = game_detail.get("roundName", "") if game_detail else ""
-                    tournament_name = league.get("name", "")
-                    if round_name:
-                        tournament_name = f"{tournament_name} — {round_name}" if tournament_name else round_name
-
-                    sstats_data = {
-                        "game_id": game_id,
-                        "game_detail": game_detail,
-                        "glicko": glicko,
-                        "consensus": consensus,
-                        "text_summary": text_summary,
-                        "bookmaker_count": len(odds_blocks),
-                    }
-                    match_info = {
-                        "tournament": tournament_name or "неизвестен",
-                        "date": game_detail.get("date", d) if game_detail else d,
-                        "home": h,
-                        "away": a,
-                    }
+                        progress_cb({"type": "info", "msg": f"Поиск на sstats прерван (таймаут {_SEARCH_TIMEOUT}с)"})
                     break
-            if sstats_data:
-                break
-    except Exception as e:
-        print(f"[ai_analyzer] sstats error: {e}")
+                d = (today + _dt.timedelta(days=delta)).isoformat()
+                games = _ss.fetch_games_by_date(d)
+                print(f"[ai_analyzer] Searching {d}: {len(games)} games found")
+                for g in games:
+                    h = (g.get("homeTeam") or {}).get("name", "").lower().strip()
+                    a = (g.get("awayTeam") or {}).get("name", "").lower().strip()
+                    if _names_match(home_en, h) and _names_match(away_en, a):
+                        game_id = int(g["id"])
+                        if progress_cb:
+                            progress_cb({"type": "success", "msg": f"Найден на sstats.net: id={game_id}"})
+
+                        game_detail = _safe_fetch(_ss.fetch_game, game_id)
+                        if game_detail and "game" in game_detail:
+                            game_detail = game_detail["game"]
+                        glicko = _safe_fetch(_ss.fetch_glicko, game_id)
+                        odds_blocks = _safe_fetch(_ss.fetch_odds, game_id, default=[]) or []
+                        consensus = _ss.consensus_odds(odds_blocks) if odds_blocks else None
+                        text_summary = _safe_fetch(_ss.fetch_text_summary, game_id)
+                        last_stats = _safe_fetch(_ss.fetch_last_games_stats, game_id)
+                        injuries = _safe_fetch(_ss.fetch_injuries, game_id)
+                        h2h = _safe_fetch(_ss.fetch_h2h,
+                            (game_detail.get("homeTeam") or {}).get("id"),
+                            (game_detail.get("awayTeam") or {}).get("id")
+                        ) if game_detail else None
+                        profits = _safe_fetch(_ss.fetch_profits, game_id)
+
+                        season = game_detail.get("season", {}) if game_detail else {}
+                        league = season.get("league", {}) if season else {}
+                        round_name = game_detail.get("roundName", "") if game_detail else ""
+                        tournament_name = league.get("name", "")
+                        if round_name:
+                            tournament_name = f"{tournament_name} — {round_name}" if tournament_name else round_name
+                        season_table = None
+                        league_id = league.get("id")
+                        if league_id:
+                            season_table = _safe_fetch(_ss.fetch_season_table, league_id)
+
+                        sstats_data = {
+                            "game_id": game_id,
+                            "game_detail": game_detail,
+                            "glicko": glicko,
+                            "consensus": consensus,
+                            "over_under": _ss.consensus_over_under(odds_blocks) if odds_blocks else None,
+                            "text_summary": text_summary,
+                            "bookmaker_count": len(odds_blocks),
+                            "last_stats": last_stats,
+                            "injuries": injuries,
+                            "h2h": h2h,
+                            "profits": profits,
+                            "season_table": season_table,
+                        }
+                        match_info = {
+                            "tournament": tournament_name or "неизвестен",
+                            "date": game_detail.get("date", d) if game_detail else d,
+                            "home": h,
+                            "away": a,
+                        }
+                        break
+                if sstats_data:
+                    break
+        except Exception as e:
+            print(f"[ai_analyzer] sstats error: {e}")
 
     # Step 2: search local DB
     home = _find_team_in_db(home_en) or _find_team_in_db(home_name)
@@ -1114,7 +1368,8 @@ def search_and_predict(home_name: str, away_name: str,
     source_away = "db"
 
     # Step 3: if not found in DB, search sstats then Understat for recent matches
-    if not home:
+    # SKIP if we already have sstats_data (fast path loaded it by game_id)
+    if not home and not sstats_data:
         if progress_cb:
             progress_cb({"type": "info", "msg": f"Поиск {home_en} в sstats.net…"})
         result = _search_sstats_team(home_en, progress_cb=progress_cb)
@@ -1132,7 +1387,7 @@ def search_and_predict(home_name: str, away_name: str,
                 home = db.get_team(result["team_id"])
                 source_home = "understat"
 
-    if not away:
+    if not away and not sstats_data:
         if progress_cb:
             progress_cb({"type": "info", "msg": f"Поиск {away_en} в sstats.net…"})
         result = _search_sstats_team(away_en, progress_cb=progress_cb)
@@ -1176,6 +1431,18 @@ def search_and_predict(home_name: str, away_name: str,
         context_parts.append(f"  Маржа: {c.get('overround_pct','?')}%")
         context_parts.append("")
 
+    # Add Over/Under odds
+    if sstats_data and sstats_data.get("over_under"):
+        ou = sstats_data["over_under"]
+        context_parts.append("ТОТАЛ ГОЛОВ (Over/Under):")
+        for line, vals in ou.items():
+            context_parts.append(
+                f"  Линия {line}: Over {vals['over']:.1%} / Under {vals['under']:.1%} "
+                f"(ср. коэфф: Over {vals['avg_over_odds']}, Under {vals['avg_under_odds']}, "
+                f"книг: {vals['bookmaker_count']})"
+            )
+        context_parts.append("")
+
     # Add Glicko ratings if available
     if sstats_data and sstats_data.get("glicko"):
         g = sstats_data["glicko"]
@@ -1189,6 +1456,88 @@ def search_and_predict(home_name: str, away_name: str,
                 context_parts.append(f"  {name}: rating={rating}, rd={rd}")
         context_parts.append("")
 
+    # Add last games stats if available
+    if sstats_data and sstats_data.get("last_stats"):
+        stats = sstats_data["last_stats"]
+        context_parts.append("СТАТИСТИКА ПОСЛЕДНИХ МАТЧЕЙ (sstats.net):")
+        for team_key, team_label in [("home", "ХОЗЯЕВА"), ("away", "ГОСТИ")]:
+            team_stats = stats.get(team_key, {})
+            if team_stats:
+                context_parts.append(f"  {team_label}:")
+                context_parts.append(f"    Средние голы за матч: {team_stats.get('avg_goals_scored', '?')}")
+                context_parts.append(f"    Средние пропущенные: {team_stats.get('avg_goals_conceded', '?')}")
+                context_parts.append(f"    xG за матч: {team_stats.get('avg_xg', '?')}")
+                context_parts.append(f"    Винрейт: {team_stats.get('win_rate', '?')}")
+                context_parts.append(f"    Форма (последние 5): {team_stats.get('recent_form', '?')}")
+                # Additional stats
+                if team_stats.get('avg_shots'):
+                    context_parts.append(f"    Средние удары: {team_stats.get('avg_shots')}")
+                if team_stats.get('avg_corners'):
+                    context_parts.append(f"    Средние угловые: {team_stats.get('avg_corners')}")
+                if team_stats.get('avg_xg_against'):
+                    context_parts.append(f"    xG против: {team_stats.get('avg_xg_against')}")
+        context_parts.append("")
+
+    # Add injuries if available
+    if sstats_data and sstats_data.get("injuries"):
+        injuries = sstats_data["injuries"]
+        if injuries:
+            context_parts.append("ТРАВМЫ И ДИСКВАЛИФИКАЦИИ (sstats.net):")
+            for inj in injuries[:15]:
+                player = inj.get("player", {})
+                if isinstance(player, dict):
+                    player_name = player.get("name", "?")
+                else:
+                    player_name = str(player)
+                reason = inj.get("reason", "?")
+                team_id = inj.get("teamId", "?")
+                team_label = "ХОЗЯЕВА" if team_id == 1 else "ГОСТИ"
+                context_parts.append(f"  [{team_label}] {player_name}: {reason}")
+            context_parts.append("")
+
+    # Add H2H if available
+    if sstats_data and sstats_data.get("h2h"):
+        h2h = sstats_data["h2h"]
+        if h2h:
+            context_parts.append("ЛИЧНЫЕ ВСТРЕЧИ (sstats.net):")
+            for h2h_match in h2h[:10]:
+                date = h2h_match.get("date", "?")[:10]
+                h_name = h2h_match.get("homeTeam", {}).get("name", "?")
+                a_name = h2h_match.get("awayTeam", {}).get("name", "?")
+                score_h = h2h_match.get("homeResult", "?")
+                score_a = h2h_match.get("awayResult", "?")
+                context_parts.append(f"  {date}: {h_name} {score_h}:{score_a} {a_name}")
+            context_parts.append("")
+
+    # Add profits (betting profitability analysis)
+    if sstats_data and sstats_data.get("profits"):
+        profits = sstats_data["profits"]
+        if profits:
+            context_parts.append("АНАЛИЗ ПРИБЫЛЬНОСТИ СТАВОК (sstats.net):")
+            # Home team profits
+            home_profits = profits.get("home", [])
+            if home_profits:
+                context_parts.append("  Хозяева:")
+                for item in home_profits[:3]:
+                    market = item.get("market", "")
+                    outcomes = item.get("outcomes", [])
+                    if outcomes:
+                        win_outcome = next((o for o in outcomes if o.get("name") == "Win"), None)
+                        if win_outcome:
+                            context_parts.append(f"    {market}: прибыль {win_outcome.get('profit', '?')}")
+            # Away team profits
+            away_profits = profits.get("away", [])
+            if away_profits:
+                context_parts.append("  Гости:")
+                for item in away_profits[:3]:
+                    market = item.get("market", "")
+                    outcomes = item.get("outcomes", [])
+                    if outcomes:
+                        win_outcome = next((o for o in outcomes if o.get("name") == "Win"), None)
+                        if win_outcome:
+                            context_parts.append(f"    {market}: прибыль {win_outcome.get('profit', '?')}")
+            context_parts.append("")
+
     # Add DB team data if available
     if home:
         context_parts.append(f"ДАННЫЕ О {home_en.upper()} (из БД):")
@@ -1197,52 +1546,57 @@ def search_and_predict(home_name: str, away_name: str,
         context_parts.append(f"ДАННЫЕ О {away_en.upper()} (из БД):")
         context_parts.append(f"  Лига: {away.get('league_slug', '?')}")
 
-    # Always gather web data for teams (DB may have no match history)
-    from web_scraper import gather_team_data as _gtd, format_data_for_llm as _fdllm
-    for team_en, team_label in [(home_en, "home"), (away_en, "away")]:
+    # Web data: ESPN + universal scraper (skippable via config)
+    import config as _cfg
+    if _cfg.ENABLE_ESPN_AI:
+        from web_scraper import gather_team_data as _gtd, format_data_for_llm as _fdllm
+        for team_en, team_label in [(home_en, "home"), (away_en, "away")]:
+            if progress_cb:
+                progress_cb({"type": "info", "msg": f"Собираю данные о {team_en}…"})
+
+            team_data = _gtd(team_en, progress_cb=progress_cb)
+            formatted = _fdllm(team_data)
+            if formatted and "не найдены" not in formatted:
+                context_parts.append(f"\n--- ДАННЫЕ О {team_en.upper()} (веб) ---")
+                context_parts.append(formatted)
+
+        # Step 5: ESPN match data (recent form, stats, news)
+        from scrapers.web import fetch_espn_match
+        espn_data = fetch_espn_match(home_en, away_en, progress_cb=progress_cb)
+        if espn_data:
+            if espn_data.get("match_info"):
+                context_parts.append("\n--- ESPN: ИНФОРМАЦИЯ О МАТЧЕ ---")
+                context_parts.append(espn_data["match_info"][:2000])
+            if espn_data.get("recent_form"):
+                context_parts.append("\n--- ESPN: ПОСЛЕДНИЕ МАТЧИ ---")
+                context_parts.append(espn_data["recent_form"][:2000])
+            if espn_data.get("stats"):
+                context_parts.append("\n--- ESPN: СТАТИСТИКА ---")
+                context_parts.append(espn_data["stats"][:1500])
+            if espn_data.get("news"):
+                context_parts.append("\n--- ESPN: НОВОСТИ ---")
+                context_parts.append(espn_data["news"][:500])
+
+        # Step 5b: Universal match scraper (championat, sports.ru, bombardir, etc.)
+        from scrapers.universal_match import gather_all_match_data
         if progress_cb:
-            progress_cb({"type": "info", "msg": f"Собираю данные о {team_en}…"})
-
-        team_data = _gtd(team_en, progress_cb=progress_cb)
-        formatted = _fdllm(team_data)
-        if formatted and "не найдены" not in formatted:
-            context_parts.append(f"\n--- ДАННЫЕ О {team_en.upper()} (веб) ---")
-            context_parts.append(formatted)
-
-    # Step 5: ESPN match data (recent form, stats, news)
-    from scrapers.web import fetch_espn_match
-    espn_data = fetch_espn_match(home_en, away_en, progress_cb=progress_cb)
-    if espn_data:
-        if espn_data.get("match_info"):
-            context_parts.append("\n--- ESPN: ИНФОРМАЦИЯ О МАТЧЕ ---")
-            context_parts.append(espn_data["match_info"][:2000])
-        if espn_data.get("recent_form"):
-            context_parts.append("\n--- ESPN: ПОСЛЕДНИЕ МАТЧИ ---")
-            context_parts.append(espn_data["recent_form"][:2000])
-        if espn_data.get("stats"):
-            context_parts.append("\n--- ESPN: СТАТИСТИКА ---")
-            context_parts.append(espn_data["stats"][:1500])
-        if espn_data.get("news"):
-            context_parts.append("\n--- ESPN: НОВОСТИ ---")
-            context_parts.append(espn_data["news"][:500])
-
-    # Step 5b: Universal match scraper (championat, sports.ru, bombardir, etc.)
-    from scrapers.universal_match import gather_all_match_data
-    if progress_cb:
-        progress_cb({"type": "info", "msg": "Собираю данные со всех сайтов…"})
-    web_match_data = gather_all_match_data(home_en, away_en, progress_cb=progress_cb)
-    if web_match_data.get("preview"):
-        context_parts.append("\n--- ПРЕДМАТЧНЫЙ АНАЛИЗ ---")
-        context_parts.append(web_match_data["preview"][:2500])
-    if web_match_data.get("lineups"):
-        context_parts.append("\n--- СОСТАВЫ ---")
-        context_parts.append(web_match_data["lineups"][:2000])
-    if web_match_data.get("stats"):
-        context_parts.append("\n--- СТАТИСТИКА ---")
-        context_parts.append(web_match_data["stats"][:2000])
-    if web_match_data.get("news"):
-        context_parts.append("\n--- НОВОСТИ ---")
-        context_parts.append(web_match_data["news"][:500])
+            progress_cb({"type": "info", "msg": "Собираю данные со всех сайтов…"})
+        web_match_data = gather_all_match_data(home_en, away_en, progress_cb=progress_cb)
+        if web_match_data.get("preview"):
+            context_parts.append("\n--- ПРЕДМАТЧНЫЙ АНАЛИЗ ---")
+            context_parts.append(web_match_data["preview"][:2500])
+        if web_match_data.get("lineups"):
+            context_parts.append("\n--- СОСТАВЫ ---")
+            context_parts.append(web_match_data["lineups"][:2000])
+        if web_match_data.get("stats"):
+            context_parts.append("\n--- СТАТИСТИКА ---")
+            context_parts.append(web_match_data["stats"][:2000])
+        if web_match_data.get("news"):
+            context_parts.append("\n--- НОВОСТИ ---")
+            context_parts.append(web_match_data["news"][:500])
+    else:
+        if progress_cb:
+            progress_cb({"type": "info", "msg": "ESPN/web-скрапинг отключён (ENABLE_ESPN_AI=False)"})
 
     context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
@@ -1258,10 +1612,34 @@ def search_and_predict(home_name: str, away_name: str,
         except Exception:
             pass
 
+    # Add totals/BTTS calculation from model prediction
+    if prediction and prediction.get("probabilities"):
+        probs = prediction["probabilities"]
+        h_prob = probs.get("home_win", 50) / 100
+        d_prob = probs.get("draw", 25) / 100
+        a_prob = probs.get("away_win", 25) / 100
+        exp_total = 2.0 + (h_prob - 0.45) * 2.5 + (a_prob - 0.25) * 1.5
+        exp_total = max(1.5, min(4.5, round(exp_total, 2)))
+        btts_yes = "Да" if exp_total > 2.3 else "Нет"
+
+        # Find closest line to recommended total
+        lines = [1.5, 2.5, 3.5, 4.5]
+        best_line = min(lines, key=lambda l: abs(exp_total - l))
+        verdict = "больше" if exp_total > best_line else "меньше"
+
+        totals_block = (
+            f"\n--- РАСЧЁТ ТОТАЛА И BTTS (из модели) ---\n"
+            f"  Ожидаемый тотал голов: {exp_total}\n"
+            f"  Рекомендуемая ставка: Тотал {verdict} {best_line}\n"
+            f"  BTTS (обе забьют): {btts_yes}\n"
+            f"  Возможные точные счёта: 1:0, 2:1, 1:1, 2:0\n"
+        )
+        context_text += totals_block
+
     analysis = _chat([
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"Проанализируй этот футбольный матч:\n\n{context_text}"},
-    ], model=model, temperature=0.7, max_tokens=1500)
+    ], model=model, temperature=0.7, max_tokens=2500, timeout=60)
 
     predictions = _extract_predictions_safe(analysis)
 

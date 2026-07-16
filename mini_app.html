@@ -3,147 +3,236 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>FootballAI</title>
+<title>VisionPro</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#06080d;--surface:#0d1117;--card:#161b22;
-  --border:#21262d;--text:#f0f3f6;--text2:#8b949e;--text3:#484f58;
-  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#eab308;--violet:#8b5cf6;
-  --r:14px;
+  --bg:#000000;--bg2:#0e0e10;--card:#1c1c1e;--card2:#26262a;--line:#2e2e32;
+  --ink:#f5f5f7;--ink2:#98989f;--ink3:#636368;
+  --cyan:#10b981;--violet:#047857;--green:#30d158;--red:#ff453a;--amber:#ffd60a;
+  --cardborder:rgba(255,255,255,.07);--sheetline:rgba(255,255,255,.08);
+  --r:16px;--grad:linear-gradient(135deg,var(--cyan),var(--violet));
+  --mono:ui-monospace,'SF Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.32,.72,0,1);
 }
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;padding-bottom:80px;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;padding-bottom:80px;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background:
+    radial-gradient(ellipse 50% 80% at 85% 70%,rgba(16,185,129,.18) 0%,transparent 70%),
+    radial-gradient(ellipse 40% 60% at 95% 30%,rgba(5,150,105,.14) 0%,transparent 60%),
+    linear-gradient(180deg,#071a12 0%,#0a2a1c 50%,#071a12 100%)}
+body::before{content:"";position:fixed;z-index:-1;top:-20%;right:-10%;width:60vmax;height:80vmax;
+  background:radial-gradient(ellipse 100% 100% at 70% 50%,rgba(16,185,129,.18) 0%,rgba(5,150,105,.08) 30%,transparent 65%);
+  filter:blur(60px);opacity:.7;pointer-events:none;animation:silkDrift 20s ease-in-out infinite alternate}
+body::after{content:"";position:fixed;z-index:-1;bottom:0;right:0;width:50vmax;height:60vmax;
+  background:radial-gradient(ellipse 80% 100% at 80% 80%,rgba(16,185,129,.15) 0%,rgba(4,120,87,.06) 40%,transparent 70%);
+  filter:blur(50px);opacity:.6;pointer-events:none;animation:silkDrift2 25s ease-in-out infinite alternate}
+@keyframes silkDrift{0%{transform:translate(0,0) rotate(0deg) scale(1)}100%{transform:translate(-3vmax,4vmax) rotate(2deg) scale(1.05)}}
+@keyframes silkDrift2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(2vmax,-3vmax) scale(1.08)}}
+.golden-particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.golden-particles span{position:absolute;width:2px;height:2px;border-radius:50%;
+  background:radial-gradient(circle,rgba(212,175,55,.9) 0%,rgba(212,175,55,0) 70%);
+  box-shadow:0 0 6px 2px rgba(212,175,55,.3);animation:floatParticle linear infinite}
+@keyframes floatParticle{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:.6}100%{transform:translateY(-10vh) scale(1);opacity:0}}
 
 /* Header */
 .hdr{text-align:center;padding:8px 0 12px}
-.hdr h1{font-size:20px;font-weight:900;letter-spacing:-.02em}
-.hdr h1 span{color:var(--cyan)}
-.hdr p{font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:.5px}
+.hdr h1{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.hdr h1 span{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr p{font-size:10px;color:var(--ink3);margin-top:2px;letter-spacing:.5px}
 
-/* Tabs */
-.tabs{display:flex;gap:4px;margin-bottom:12px}
-.tab{flex:1;padding:10px 0;border:none;border-radius:10px;background:var(--card);color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s}
-.tab.on{background:rgba(6,182,212,.15);color:var(--cyan)}
+/* Nav */
+nav{position:fixed;bottom:0;left:0;right:0;z-index:60;background:rgba(10,10,12,.72);backdrop-filter:saturate(180%) blur(28px);-webkit-backdrop-filter:saturate(180%) blur(28px);border-top:1px solid var(--sheetline);display:flex;padding-bottom:env(safe-area-inset-bottom,0)}
+nav button{flex:1;background:none;border:none;color:var(--ink3);padding:10px 0 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;font-weight:700;font-family:inherit;text-transform:uppercase;letter-spacing:.5px;transition:color .25s var(--ease);position:relative;min-height:48px;justify-content:center}
+nav button svg{width:20px;height:20px;stroke-width:1.8;transition:transform .35s var(--spring)}
+nav button.on{color:var(--cyan)}
+nav button.on svg{transform:scale(1.08) translateY(-1px)}
+nav button.on::after{content:'';position:absolute;top:0;left:20%;right:20%;height:2px;background:var(--cyan);border-radius:0 0 2px 2px}
 
 /* Cards */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
-.card-t{font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);font-weight:800;margin-bottom:10px}
+.card{background:rgba(255,255,255,.05);border:none;border-radius:20px;padding:16px;margin-bottom:10px}
+.card-t{font-size:10px;font-weight:600;letter-spacing:-.01em;color:var(--ink2);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 
 /* Input */
-.inp{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.inp{width:100%;background:var(--card);border:1px solid var(--cardborder);border-radius:12px;padding:12px;font-size:14px;color:var(--ink);outline:none;transition:border-color .25s var(--ease)}
 .inp:focus{border-color:var(--cyan)}
-.inp::placeholder{color:var(--text3)}
+.inp::placeholder{color:var(--ink3)}
 .fgrp{margin-bottom:10px}
-.fgrp label{display:block;font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.fgrp label{display:block;font-size:9px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 
 /* Button */
-.btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--cyan),#3b82f6);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn{width:100%;padding:13px;border:none;border-radius:980px;background:var(--cyan);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .25s var(--ease);position:relative;overflow:hidden}
 .btn:active{transform:scale(.97)}
 .btn:disabled{opacity:.35;cursor:default}
-.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 32%,rgba(255,255,255,.3) 50%,transparent 68%);transform:translateX(-130%);animation:shine 3.6s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%,55%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
+.btn-ghost{background:rgba(255,255,255,.05);border:1px solid var(--cardborder);color:var(--ink)}
+.btn-sm{width:auto;padding:8px 14px;font-size:11px;border-radius:980px;min-height:34px}
+.btn-sm::before{display:none}
+.btn-tint{background:rgba(16,185,129,.14);color:var(--cyan);border:none}
+.btn-tint::before{display:none}
 
 /* Match card */
-.mc{padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.mc{padding:12px 0;border-bottom:1px solid var(--sheetline);cursor:pointer;transition:background .15s}
 .mc:last-child{border-bottom:none}
-.mc:active{background:rgba(6,182,212,.05)}
-.mc-top{display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-bottom:6px}
+.mc:active{background:rgba(16,185,129,.05)}
+.mc-top{display:flex;justify-content:space-between;font-size:10px;color:var(--ink3);margin-bottom:6px}
 .mc-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;font-size:13px}
 .mc-home{text-align:right;font-weight:700}
 .mc-away{font-weight:700}
-.mc-vs{text-align:center;font-family:monospace;font-weight:800;background:var(--surface);padding:4px 10px;border-radius:8px;font-size:11px;border:1px solid var(--border);min-width:50px}
-.mc-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:8px;gap:1px}
+.mc-score{text-align:center;font-family:var(--mono);font-weight:800;background:var(--card2);padding:4px 10px;border-radius:8px;font-size:11px;border:1px solid var(--cardborder);min-width:50px}
+.mc-bar{display:flex;height:5px;border-radius:980px;overflow:hidden;margin-top:8px;gap:1px}
 .mc-bar div{transition:width .3s}
 .mc-bar .h{background:var(--green)}.mc-bar .d{background:var(--amber)}.mc-bar .a{background:var(--red)}
-.mc-pct{display:flex;justify-content:space-between;font-size:10px;font-family:monospace;font-weight:600;margin-top:4px}
+.mc-pct{display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
 .mc-pct .h{color:var(--green)}.mc-pct .d{color:var(--amber)}.mc-pct .a{color:var(--red)}
-.mc-tags{display:flex;gap:4px;margin-top:6px}
-.tag{font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
-.tag-over{background:rgba(139,92,246,.12);color:var(--violet)}
-.tag-btts{background:rgba(6,182,212,.12);color:var(--cyan)}
-.tag-conf{background:rgba(34,197,94,.12);color:var(--green)}
+.mc-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.tag{font-size:8px;font-weight:600;padding:2px 6px;border-radius:980px;text-transform:uppercase}
+.tag-over{background:rgba(4,120,87,.12);color:var(--violet)}
+.tag-under{background:rgba(13,148,136,.08);color:var(--cyan)}
+.tag-btts{background:rgba(16,185,129,.12);color:var(--cyan)}
+.tag-conf{background:rgba(16,185,129,.12);color:#10b981}
+.tag-conf.low{background:rgba(10,74,61,.1);color:#0a6b57}
 
-/* League filter */
-.leagues{display:flex;gap:4px;overflow-x:auto;padding:2px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.leagues::-webkit-scrollbar{display:none}
-.lg{white-space:nowrap;padding:6px 10px;border-radius:16px;font-size:10px;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text3);cursor:pointer;flex-shrink:0}
-.lg.on{background:rgba(6,182,212,.12);color:var(--cyan);border-color:rgba(6,182,212,.3)}
+/* League chips */
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:8px 14px;border-radius:980px;font-size:11px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid var(--cardborder);color:var(--ink2);cursor:pointer;flex-shrink:0;transition:all .25s var(--ease)}
+.chip.on{background:var(--cyan);color:#fff;border-color:transparent}
 
-/* Result modal */
-.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center}
+/* Modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .modal.open{display:flex}
-.modal-body{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-height:80vh;overflow-y:auto;padding:16px 14px 32px;animation:su .25s}
-@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.modal-h{width:28px;height:3px;background:var(--border);border-radius:2px;margin:0 auto 12px}
+.modal-body{background:var(--card);border:1px solid var(--cardborder);border-radius:24px 24px 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:8px 16px 32px;animation:su .4s var(--spring)}
+@keyframes su{from{transform:translateY(100%)}to{transform:none}}
+.modal-h{width:36px;height:5px;border-radius:980px;background:var(--line);margin:8px auto 14px}
 
 /* Prob display */
 .prob-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:12px 0}
-.prob-item{text-align:center;padding:12px 4px;border-radius:10px;background:var(--card)}
-.prob-item .lbl{font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700}
-.prob-item .val{font-size:24px;font-weight:900;font-family:monospace;margin-top:2px}
+.prob-item{text-align:center;padding:14px 4px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--cardborder)}
+.prob-item .lbl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);font-weight:700}
+.prob-item .val{font-size:24px;font-weight:800;font-family:var(--mono);margin-top:2px;font-variant-numeric:tabular-nums}
 .prob-item.best{border:2px solid var(--cyan)}
 
 /* Analysis */
-.ai-text{font-size:12px;line-height:1.7;color:var(--text2);white-space:pre-wrap;margin-top:10px}
-.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:sp .6s linear infinite;display:inline-block}
+.ai-text{font-size:14px;line-height:1.65;color:var(--ink);white-space:pre-wrap;margin-top:10px;letter-spacing:-.008em}
+.pred-box{margin-top:14px;background:var(--card2);border:none;border-left:4px solid var(--cyan);border-radius:16px;padding:16px 16px 16px 20px;position:relative;box-shadow:0 4px 20px rgba(0,0,0,.18),0 0 0 1px var(--cardborder)}
+.pred-box.conf-high{border-left-color:#10b981;box-shadow:0 4px 20px rgba(16,185,129,.12),0 0 0 1px rgba(16,185,129,.18)}
+.pred-box.conf-medium{border-left-color:#0d9273;box-shadow:0 4px 20px rgba(13,146,115,.1),0 0 0 1px rgba(13,146,115,.15)}
+.pred-box.conf-low{border-left-color:#0a6b57;box-shadow:0 4px 20px rgba(10,107,87,.08),0 0 0 1px rgba(10,107,87,.12)}
+.pred-box.conf-very-low{border-left-color:#0a4a3d;box-shadow:0 4px 20px rgba(10,74,61,.06),0 0 0 1px rgba(10,74,61,.1)}
+.pred-box .lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.pred-box .lbl .pred-icon{font-size:14px;line-height:1}
+.pred-box .txt{font-size:16px;font-weight:700;line-height:1.4;letter-spacing:-.02em;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.pred-box .conf{text-align:right;margin-top:8px}
+.conf-gauge{display:flex;align-items:center;gap:8px;margin-top:8px}
+.conf-gauge-track{flex:1;height:4px;background:var(--line);border-radius:980px;overflow:hidden}
+.conf-gauge-fill{height:100%;border-radius:980px;transition:width .8s var(--ease)}
+.conf-gauge-fill.g-high{background:linear-gradient(90deg,#059669,#10b981)}
+.conf-gauge-fill.g-medium{background:linear-gradient(90deg,#0a7d62,#0d9273)}
+.conf-gauge-fill.g-low{background:linear-gradient(90deg,#085c4a,#0a6b57)}
+.conf-gauge-fill.g-very-low{background:linear-gradient(90deg,#073d33,#0a4a3d)}
+.conf-gauge-label{font-size:10px;font-weight:600;min-width:80px;text-align:right}
+
+/* Spinner */
+.spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--cyan);border-radius:50%;animation:sp .6s linear infinite;display:inline-block;flex-shrink:0}
 @keyframes sp{to{transform:rotate(360deg)}}
 
 /* Standings */
 table{width:100%;border-collapse:collapse;font-size:11px}
-th{color:var(--text3);font-size:8px;font-weight:700;text-transform:uppercase;padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
-td{padding:6px 4px;border-bottom:1px solid var(--border)}
-.n{font-family:monospace;text-align:right}
-.pos{font-family:monospace;font-weight:700;text-align:center;width:24px;color:var(--text3)}
+th{color:var(--ink3);font-size:8px;font-weight:700;text-transform:uppercase;padding:6px 4px;text-align:left;border-bottom:1px solid var(--sheetline)}
+td{padding:6px 4px;border-bottom:1px solid var(--sheetline)}
+.num{font-family:var(--mono);text-align:right}
+.pos{font-family:var(--mono);font-weight:700;text-align:center;width:22px;color:var(--ink3)}
+.cl td{color:var(--green)}.rel td{color:var(--red)}
 
-/* Stats row */
+/* Stats */
 .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
-.stat{text-align:center;padding:10px 4px;border-radius:10px;background:var(--card)}
-.stat .v{font-size:18px;font-weight:900;font-family:monospace;color:var(--cyan)}
-.stat .l{font-size:8px;color:var(--text3);text-transform:uppercase;margin-top:2px;font-weight:700}
+.stat{text-align:center;padding:10px 4px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--cardborder)}
+.stat .v{font-size:18px;font-weight:800;font-family:var(--mono);background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat .l{font-size:8px;color:var(--ink3);text-transform:uppercase;margin-top:2px;font-weight:600}
+
+/* Accuracy */
+.acc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--sheetline);font-size:11px}
+.acc-bar{flex:1;margin:0 10px;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.acc-fill{height:100%;border-radius:2px;transition:width .6s}
+.acc-pct{font-family:var(--mono);font-weight:700;min-width:36px;text-align:right}
+
+/* Autocomplete */
+.ac{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--card);border:1px solid var(--cardborder);border-radius:14px;margin-top:4px;display:none;max-height:160px;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.ac.open{display:block}
+.ac-item{padding:10px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--sheetline)}
+.ac-item:last-child{border-bottom:none}
+.ac-item:active{background:rgba(16,185,129,.08)}
+.ac-item .lg{font-size:9px;color:var(--ink3);margin-left:6px}
+
+/* Search */
+.search-wrap{position:relative}
+.search{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--sheetline);border-radius:12px;padding:10px 12px 10px 36px;font-size:13px;color:var(--ink);outline:none}
+.search:focus{border-color:var(--cyan)}
+.search::placeholder{color:var(--ink3)}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink3)}
 
 /* Sections */
 .sec{display:none}.sec.on{display:block}
+
+/* Prematch */
+.pm-progress{background:var(--sheetline);border-radius:6px;height:6px;overflow:hidden;margin:8px 0}
+.pm-bar{height:100%;background:var(--grad);border-radius:6px;transition:width .5s}
 </style>
 </head>
 <body>
+<div class="golden-particles" id="goldenParticles"></div>
 
 <div class="hdr">
-  <h1>Football<span>AI</span></h1>
-  <p>xG · Elo · ML ensemble · 75+ лиг</p>
+  <h1>Vision<span class="grad-text">Pro</span></h1>
+  <p>xG · Elo · ML · 108 признаков</p>
 </div>
 
-<div class="tabs">
-  <button class="tab on" onclick="show('matches')">Матчи</button>
-  <button class="tab" onclick="show('predict')">Прогноз</button>
-  <button class="tab" onclick="show('tables')">Таблицы</button>
-</div>
-
-<!-- ═══ MATCHES ═══ -->
-<div class="sec on" id="s-matches">
-  <div class="stats">
-    <div class="stat"><div class="v" id="st-m">-</div><div class="l">Матчей</div></div>
-    <div class="stat"><div class="v" id="st-l">-</div><div class="l">Лиг</div></div>
-    <div class="stat"><div class="v" id="st-a">-</div><div class="l">Точность</div></div>
-  </div>
-  <div class="leagues" id="lg-chips"></div>
-  <div class="card" id="match-list"><div style="text-align:center;padding:20px;color:var(--text3)"><div class="spinner"></div><div style="margin-top:8px">Загрузка...</div></div></div>
-</div>
-
-<!-- ═══ PREDICT ═══ -->
-<div class="sec" id="s-predict">
+<!-- ═══ ANALYSIS ═══ -->
+<div class="sec on" id="s-analysis">
   <div class="card">
-    <div class="card-t">AI Прогноз матча</div>
-    <div class="fgrp"><label>Хозяева</label><input class="inp" id="p-home" placeholder="Arsenal" autocomplete="off"></div>
-    <div class="fgrp"><label>Гости</label><input class="inp" id="p-away" placeholder="Chelsea" autocomplete="off"></div>
-    <button class="btn" id="p-btn" disabled onclick="predict()">Получить прогноз</button>
+    <div class="card-t">AI Анализ матча</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:end">
+      <div><label>Хозяева</label>
+        <div class="search-wrap"><input class="inp" id="ai-home" placeholder="Arsenal" autocomplete="off" style="font-size:13px"><div class="ac" id="ac-home"></div></div>
+      </div>
+      <div style="font-size:16px;font-weight:900;color:var(--ink3);padding-bottom:10px">VS</div>
+      <div><label>Гости</label>
+        <div class="search-wrap"><input class="inp" id="ai-away" placeholder="Chelsea" autocomplete="off" style="font-size:13px"><div class="ac" id="ac-away"></div></div>
+      </div>
+    </div>
+    <button class="btn" id="ai-btn" disabled onclick="runAnalysis()">Получить прогноз</button>
   </div>
-  <div class="card" id="p-loading" style="display:none"><div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div><span style="font-size:12px;color:var(--text2)" id="p-msg">Анализирую...</span></div></div>
-  <div id="p-result"></div>
+
+  <div class="card" id="ai-loading" style="display:none"><div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div><div><div style="font-weight:600;font-size:12px" id="ai-load-msg">Поиск команд...</div><div style="font-size:10px;color:var(--ink3);margin-top:2px" id="ai-load-sub"></div></div></div></div>
+
+  <div id="ai-result" style="display:none">
+    <div id="ai-prob-display"></div>
+    <div id="ai-text-block"></div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-tint btn-sm" id="ai-save-btn" onclick="savePrediction()">Сохранить</button>
+    </div>
+  </div>
 </div>
 
-<!-- ═══ TABLES ═══ -->
-<div class="sec" id="s-tables">
-  <div class="leagues" id="t-chips"></div>
-  <div class="card" id="table-body"><div style="text-align:center;padding:20px;color:var(--text3)">Выберите лигу</div></div>
+<!-- ═══ PREMATCH ═══ -->
+<div class="sec" id="s-prematch">
+  <div class="card">
+    <div class="card-t">Предматчевый анализ</div>
+    <p style="font-size:11px;color:var(--ink2);margin-bottom:10px">Матчи на сегодня из sstats.net</p>
+    <button class="btn" id="pm-load-btn" onclick="loadTodayMatches()">Матчи на сегодня</button>
+  </div>
+  <div id="pm-loading" style="display:none" class="card"><div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div><span style="font-size:12px;color:var(--ink2)">Загрузка матчей...</span></div></div>
+  <div id="pm-list"></div>
+  <div id="pm-detail" style="display:none"></div>
+</div>
+
+<!-- ═══ ACCURACY ═══ -->
+<div class="sec" id="s-accuracy">
+  <div class="card">
+    <div class="card-t">Точность модели</div>
+    <div id="acc-body"><div style="text-align:center;padding:16px"><div class="spinner"></div></div></div>
+  </div>
 </div>
 
 <!-- ═══ MODAL ═══ -->
@@ -154,11 +243,33 @@ td{padding:6px 4px;border-bottom:1px solid var(--border)}
   </div>
 </div>
 
+<!-- ═══ NAV ═══ -->
+<nav>
+  <button class="on" onclick="show('analysis')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Анализ
+  </button>
+  <button onclick="show('prematch')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    Предматч
+  </button>
+  <button onclick="show('accuracy')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Точность
+  </button>
+</nav>
+
 <script>
 const TG = window.Telegram?.WebApp;
-if(TG){TG.ready();TG.expand();document.body.style.paddingTop=(TG.safeAreaInsetTop||0)+'px'}
+if(TG){
+  TG.ready();TG.expand();
+  const sai=TG.safeAreaInset||{};
+  if(sai.top)document.body.style.paddingTop=sai.top+'px';
+  if(sai.bottom)document.querySelector('nav').style.paddingBottom=sai.bottom+'px';
+  if(TG.BackButton){TG.BackButton.show();TG.BackButton.onClick(()=>{closeModal();backFromDetail()})}
+}
 
-// ── Theme ──
+// ── Theme from Telegram ──
 if(TG?.themeParams){
   const t=TG.themeParams;
   if(t.bg_color)document.documentElement.style.setProperty('--bg',t.bg_color);
@@ -170,180 +281,378 @@ if(TG?.themeParams){
 }
 
 // ── Tab switching ──
-let curTab='matches';
 function show(name){
-  curTab=name;
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['matches','predict','tables'][i]===name));
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('s-'+name).classList.add('on');
-  if(name==='matches')loadMatches();
-  if(name==='tables')loadTables();
+  document.querySelectorAll('nav button').forEach((b,i)=>b.classList.toggle('on',['analysis','prematch','accuracy'][i]===name));
+  if(name==='accuracy')loadAccuracy();
 }
 
-// ── Data ──
-let allMatches=[],allLeagues=new Set(),selLg='all';
-const API=location.origin;
-
-async function loadMatches(){
-  try{
-    const r=await fetch(API+'/api/upcoming');
-    const data=await r.json();
-    allMatches=data.matches||data||[];
-    allLeagues.clear();
-    allMatches.forEach(m=>allLeagues.add(m.league_slug));
-    document.getElementById('st-m').textContent=allMatches.length;
-    document.getElementById('st-l').textContent=allLeagues.size;
-    renderChips();
-    renderMatches();
-  }catch(e){
-    document.getElementById('match-list').innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Нет данных. Запустите сервер.</div>';
-  }
-}
-
-function renderChips(){
-  const c=document.getElementById('lg-chips');
-  c.innerHTML='<div class="lg on" onclick="filterLg(\'all\')">Все</div>';
-  [...allLeagues].sort().forEach(lg=>{
-    c.innerHTML+=`<div class="lg" onclick="filterLg('${lg}')">${lg.replace(/_/g,' ')}</div>`;
+// ── Autocomplete ──
+const aiHome=document.getElementById('ai-home'),aiAway=document.getElementById('ai-away');
+[aiHome,aiAway].forEach((inp,idx)=>{
+  let timer;
+  inp.addEventListener('input',()=>{
+    clearTimeout(timer);
+    document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value);
+    const v=inp.value.trim();
+    const ac=document.getElementById(idx===0?'ac-home':'ac-away');
+    if(v.length<2){ac.classList.remove('open');return}
+    timer=setTimeout(async()=>{
+      try{
+        const r=await fetch(API+`/api/ai/search-db?q=${encodeURIComponent(v)}`);
+        const data=await r.json();
+        const results=data.results||[];
+        if(!results.length){ac.classList.remove('open');return}
+        ac.innerHTML=results.map(t=>`<div class="ac-item" onclick="selectTeam(${idx},'${(t.name||'').replace(/'/g,"\\'")}')">${t.name}<span class="lg">${t.league_slug||''}</span></div>`).join('');
+        ac.classList.add('open');
+      }catch(e){}
+    },300);
   });
+});
+function selectTeam(idx,name){
+  [aiHome,aiAway][idx].value=name;
+  document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open');
+  document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value);
 }
 
-function filterLg(lg){
-  selLg=lg;
-  document.querySelectorAll('#lg-chips .lg').forEach(c=>c.textContent.replace(/ /g,'_')===lg||c.textContent==='Все'&&lg==='all'?c.classList.add('on'):c.classList.remove('on'));
-  renderMatches();
-}
+// ── API base ──
+const API=location.origin;
+const INITDATA=TG?.initData||'';
 
-function renderMatches(){
-  const f=selLg==='all'?allMatches:allMatches.filter(m=>m.league_slug===selLg);
-  if(!f.length){document.getElementById('match-list').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Нет матчей</div>';return}
-  document.getElementById('match-list').innerHTML=f.map((m,i)=>{
-    const hw=m.prediction?.home_win||m.prob_home||0,dr=m.prediction?.draw||m.prob_draw||0,aw=m.prediction?.away_win||m.prob_away||0;
-    const tot=hw+dr+aw||1;
-    const hp=(hw/tot*100).toFixed(0),dp=(dr/tot*100).toFixed(0),ap=(aw/tot*100).toFixed(0);
-    const best=Math.max(hw,dr,aw);
-    const totalG=(m.expected_home||1.3)+(m.expected_away||1.1);
-    return `<div class="mc" onclick="openDetail(${i})">
-      <div class="mc-top"><span>${(m.league_slug||'').replace(/_/g,' ')}</span><span>${(m.date||'').slice(0,10)}</span></div>
-      <div class="mc-teams"><div class="mc-home">${m.home_name||'?'}</div><div class="mc-vs">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div><div class="mc-away">${m.away_name||'?'}</div></div>
-      <div class="mc-bar"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>
-      <div class="mc-pct"><span class="h">${hp}%</span><span class="d">${dp}%</span><span class="a">${ap}%</span></div>
-      <div class="mc-tags">${best>55?'<span class="tag tag-conf">Уверенный</span>':''}${totalG>2.5?'<span class="tag tag-over">Over 2.5</span>':''}${hw/dr>1.3||aw/dr>1.3?'<span class="tag tag-btts">BTTS</span>':''}</div>
-    </div>`;
-  }).join('');
-}
-
-function openDetail(i){
-  const m=allMatches[i];if(!m)return;
-  const hw=m.prediction?.home_win||0,dr=m.prediction?.draw||0,aw=m.prediction?.away_win||0;
-  const tot=hw+dr+aw||1;
-  const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
-  const best=Math.max(hw,dr,aw);const bc=hw===best?'h':dr===best?'d':'a';
-
-  document.getElementById('modal-content').innerHTML=`
-    <div style="text-align:center;margin-bottom:12px">
-      <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${(m.league_slug||'').replace(/_/g,' ')}</div>
-      <div style="font-size:9px;color:var(--text3);margin-top:2px">${(m.date||'').slice(0,16)}</div>
-    </div>
-    <div class="mc-teams" style="margin:12px 0;font-size:15px">
-      <div class="mc-home">${m.home_name||'?'}</div>
-      <div class="mc-vs" style="font-size:14px;padding:6px 14px">${m.home_goals!=null?m.home_goals+':'+m.away_goals:'vs'}</div>
-      <div class="mc-away">${m.away_name||'?'}</div>
-    </div>
-    <div class="prob-grid">
-      <div class="prob-item ${bc==='h'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
-      <div class="prob-item ${bc==='d'?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
-      <div class="prob-item ${bc==='a'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
-    </div>
-    <button class="btn" style="margin-top:8px" onclick="closeModal();goPredict('${(m.home_name||'').replace(/'/g,"\\'")}','${(m.away_name||'').replace(/'/g,"\\'")}')">AI Анализ</button>`;
-  document.getElementById('modal').classList.add('open');
-  if(TG?.HapticFeedback)TG.HapticFeedback.impactOccurred('light');
-}
-
-function closeModal(){document.getElementById('modal').classList.remove('open')}
-
-function goPredict(h,a){show('predict');document.getElementById('p-home').value=h;document.getElementById('p-away').value=a;document.getElementById('p-btn').disabled=false}
-
-// ── Predict ──
-const ph=document.getElementById('p-home'),pa=document.getElementById('p-away');
-ph.addEventListener('input',()=>document.getElementById('p-btn').disabled=!(ph.value&&pa.value));
-pa.addEventListener('input',()=>document.getElementById('p-btn').disabled=!(ph.value&&pa.value));
-
-async function predict(){
-  const h=ph.value.trim(),a=pa.value.trim();if(!h||!a)return;
-  document.getElementById('p-loading').style.display='block';
-  document.getElementById('p-result').innerHTML='';
-  document.getElementById('p-btn').disabled=true;
-
+// ── Analysis ──
+async function runAnalysis(){
+  const h=aiHome.value.trim(),a=aiAway.value.trim();if(!h||!a)return;
+  document.getElementById('ai-loading').style.display='block';
+  document.getElementById('ai-result').style.display='none';
+  document.getElementById('ai-btn').disabled=true;
   try{
-    const r=await fetch(API+'/api/ai/search-and-predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({home_name:h,away_name:a})});
+    const r=await fetch(API+'/api/ai/search-and-predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({home_name:h,away_name:a,init_data:INITDATA})});
     const data=await r.json();
-    showResult(data);
+    renderAnalysis(data);
     if(TG?.HapticFeedback)TG.HapticFeedback.notificationOccurred('success');
   }catch(e){
-    document.getElementById('p-result').innerHTML=`<div class="card" style="color:var(--red);text-align:center">Ошибка: ${e.message}</div>`;
+    document.getElementById('ai-text-block').innerHTML=`<div class="card" style="color:var(--red);text-align:center">Ошибка: ${e.message}</div>`;
+    document.getElementById('ai-result').style.display='block';
   }
-  document.getElementById('p-loading').style.display='none';
-  document.getElementById('p-btn').disabled=false;
+  document.getElementById('ai-loading').style.display='none';
+  document.getElementById('ai-btn').disabled=false;
 }
 
-function showResult(data){
-  const pred=data.prediction;if(!pred||!pred.probabilities){document.getElementById('p-result').innerHTML='<div class="card" style="text-align:center;color:var(--text3)">Прогноз недоступен</div>';return}
-  const p=pred.probabilities;
-  const hw=p.home_win||0,dr=p.draw||0,aw=p.away_win||0,tot=hw+dr+aw||1;
-  const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
-  const best=Math.max(hw,dr,aw);const bc=hw===best?'h':dr===best?'d':'a';
-  const hn=data.home?.name||ph.value,an=data.away?.name||pa.value;
-
-  let html=`<div class="card">
-    <div class="card-t">${hn} vs ${an}</div>
-    <div class="prob-grid">
-      <div class="prob-item ${bc==='h'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
-      <div class="prob-item ${bc==='d'?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
-      <div class="prob-item ${bc==='a'?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
-    </div>
-    <div class="mc-bar" style="height:8px;margin:8px 0"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>`;
-
-  if(data.analysis){html+=`<div class="ai-text">${esc(data.analysis)}</div>`}
-  html+=`</div>`;
-  document.getElementById('p-result').innerHTML=html;
-
-  // Send result to Telegram bot
-  if(TG&&TG.initDataUnsafe?.user){
-    try{TG.sendData(JSON.stringify({home:hn,away:an,probabilities:{home_win:parseFloat(hp),draw:parseFloat(dp),away_win:parseFloat(ap)},analysis:(data.analysis||'').slice(0,500)}))}catch(e){}
+function renderAnalysis(data){
+  const pred=data.prediction;
+  let probHtml='';
+  if(pred&&pred.probabilities){
+    const p=pred.probabilities;
+    const hw=p.home_win||0,dr=p.draw||0,aw=p.away_win||0,tot=hw+dr+aw||1;
+    const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
+    const best=Math.max(hw,dr,aw);
+    probHtml=`
+      <div style="text-align:center;margin-bottom:4px;font-size:11px;color:var(--ink3)">${data.home?.name||aiHome.value} vs ${data.away?.name||aiAway.value}</div>
+      <div class="prob-grid">
+        <div class="prob-item ${best===hw?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
+        <div class="prob-item ${best===dr?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
+        <div class="prob-item ${best===aw?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
+      </div>
+      <div class="mc-bar" style="height:8px"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div>`;
   }
+  document.getElementById('ai-prob-display').innerHTML=probHtml;
+
+  let textHtml='';
+  if(data.analysis){
+    const txt=data.analysis;
+    let mainBet='',confidence='';
+    const probMatch=txt.match(/PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+):bet=([^:]+):confidence=([^\s]+)/);
+    if(probMatch){mainBet=probMatch[4].trim();confidence=probMatch[5].trim()}
+    else{
+      const bm=txt.match(/ГЛАВНЫЙ ПРОГНОЗ.*?:\s*(.+)/i);if(bm)mainBet=bm[1].trim();
+      const cm=txt.match(/уверенност[ьи]?\s*[:=]?\s*(высокая|средняя|низкая)/i);if(cm)confidence=cm[1].toLowerCase();
+    }
+    let clean=txt.replace(/PROB:home=[\d.]+:draw=[\d.]+:away=[\d.]+:bet=[^:]+:confidence=[^\s]+/,'').trim();
+    textHtml=`<div class="card"><div class="ai-text">${esc(clean)}</div>`;
+    if(mainBet){
+      const cg=confGaugeMini(confidence);
+      textHtml+=`<div class="pred-box ${cg.cls}"><div class="lbl"><span class="pred-icon">🎯</span>ГЛАВНЫЙ ПРОГНОЗ</div><div class="txt">${esc(mainBet)}</div>${cg.html}</div>`;
+    }
+    textHtml+=`</div>`;
+  }
+  document.getElementById('ai-text-block').innerHTML=textHtml;
+  document.getElementById('ai-result').style.display='block';
+  window._lastAnalysis=data;
 }
 
-function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
-
-// ── Tables ──
-const LEAGUES=['EPL','La_liga','Bundesliga','Serie_A','Ligue_1','RFPL','Eredivisie','Primeira_Liga','Super_Lig','Championship'];
-let selTbl='EPL';
-
-function loadTables(){
-  document.getElementById('t-chips').innerHTML=LEAGUES.map(l=>
-    `<div class="lg ${l===selTbl?'on':''}" onclick="loadTable('${l}')">${l.replace(/_/g,' ')}</div>`
-  ).join('');
-  loadTable(selTbl);
+function savePrediction(){
+  const d=window._lastAnalysis;if(!d)return;
+  const p=d.prediction?.probabilities||{};
+  fetch(API+'/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      home_name:d.home?.name||'',
+      away_name:d.away?.name||'',
+      league:d.home?.league_slug||'',
+      analysis:d.analysis||'',
+      home_win:p.home_win||null,
+      draw_prob:p.draw||null,
+      away_win:p.away_win||null,
+      model_used:d.model_used||''
+    })
+  }).then(()=>{const b=document.getElementById('ai-save-btn');b.textContent='Сохранено!';b.disabled=true;setTimeout(()=>{b.textContent='Сохранить';b.disabled=false},2000)});
 }
 
-async function loadTable(lg){
-  selTbl=lg;
-  document.querySelectorAll('#t-chips .lg').forEach(c=>c.classList.toggle('on',c.textContent.replace(/ /g,'_')===lg));
-  document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px"><div class="spinner"></div></div>';
+// ── Prematch ──
+let pmMatches=[];
+async function loadTodayMatches(){
+  document.getElementById('pm-loading').style.display='block';
+  document.getElementById('pm-list').innerHTML='';
+  document.getElementById('pm-detail').style.display='none';
   try{
-    const r=await fetch(API+`/api/standings?league=${lg}`);
+    const r=await fetch(API+'/api/prematch/today');
     const data=await r.json();
-    const rows=data.standings||data||[];
-    if(!rows.length){document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Нет данных</div>';return}
-    document.getElementById('table-body').innerHTML=`<table><thead><tr><th class="pos">#</th><th>Команда</th><th class="n">О</th></tr></thead><tbody>${
-      rows.map((t,i)=>`<tr${i<3?' style="color:var(--green)"':i>=rows.length-3?' style="color:var(--red)"':''}><td class="pos">${i+1}</td><td style="font-weight:600">${t.name||t.team||'?'}</td><td class="n" style="font-weight:800">${t.points||0}</td></tr>`).join('')
-    }</tbody></table>`;
-  }catch(e){document.getElementById('table-body').innerHTML='<div style="text-align:center;padding:16px;color:var(--text3)">Ошибка загрузки</div>'}
+    pmMatches=data.matches||[];
+    document.getElementById('pm-loading').style.display='none';
+    if(!pmMatches.length){document.getElementById('pm-list').innerHTML='<div class="card" style="text-align:center;color:var(--ink3)">Матчей на сегодня не найдено</div>';return}
+    let html=`<div class="card"><div class="card-t">Матчи на сегодня (${pmMatches.length})</div>`;
+    pmMatches.forEach(m=>{
+      html+=`<div class="mc" onclick="loadMatchDetail(${m.game_id})">
+        <div class="mc-top"><span>${m.league_ru||m.league||''}</span><span>${m.time||''}</span></div>
+        <div class="mc-teams"><div class="mc-home">${m.home_ru||m.home||'?'}</div><div class="mc-score">vs</div><div class="mc-away">${m.away_ru||m.away||'?'}</div></div>
+        <div style="margin-top:4px;font-size:9px;color:var(--ink3)">${m.status||''}</div>
+      </div>`;
+    });
+    html+='</div>';
+    document.getElementById('pm-list').innerHTML=html;
+  }catch(e){
+    document.getElementById('pm-loading').style.display='none';
+    document.getElementById('pm-list').innerHTML=`<div class="card" style="color:var(--red)">Ошибка: ${e.message}</div>`;
+  }
 }
 
-// ── Init ──
-loadMatches();
+let _currentGameId=null;
+
+async function loadMatchDetail(gameId){
+  _currentGameId=gameId;
+  const detail=document.getElementById('pm-detail');
+  const list=document.getElementById('pm-list');
+  list.style.display='none';detail.style.display='block';
+  detail.innerHTML=`<div class="card"><div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div><span style="font-size:12px" id="pm-status">Загрузка данных...</span></div><div class="pm-progress"><div class="pm-bar" id="pm-bar" style="width:10%"></div></div></div>`;
+  const setP=(p,s)=>{const b=document.getElementById('pm-bar');if(b)b.style.width=p+'%';const st=document.getElementById('pm-status');if(st)st.textContent=s};
+  try{
+    setP(20,'Загрузка sstats.net...');
+    const r=await fetch(API+'/api/prematch/'+gameId);
+    setP(100,'Готово!');
+    const data=await r.json();
+    if(data.error){detail.innerHTML=`<div class="card" style="color:var(--red)">${data.error}</div>`;return}
+    window._pmData=data;
+    let html=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><button class="btn btn-ghost btn-sm" onclick="backFromDetail()">← Назад</button><span style="font-size:9px;color:var(--ink3)">${data.league||''} · ${(data.date||'').slice(0,10)}</span></div><div class="mc-teams" style="font-size:16px"><div class="mc-home">${data.home||'?'}</div><div class="mc-score" style="font-size:14px;padding:6px 14px">vs</div><div class="mc-away">${data.away||'?'}</div></div></div>`;
+    if(data.consensus){
+      const c=data.consensus;
+      html+=`<div class="card"><div class="card-t">Котировки (${c.bookmaker_count||0} букм.)</div><div class="prob-grid"><div class="prob-item"><div class="lbl">1</div><div class="val" style="font-size:18px">${c.home_odds||'-'}</div><div style="font-size:9px;color:var(--ink3)">${((c.implied_home||0)*100).toFixed(0)}%</div></div><div class="prob-item"><div class="lbl">X</div><div class="val" style="font-size:18px">${c.draw_odds||'-'}</div><div style="font-size:9px;color:var(--ink3)">${((c.implied_draw||0)*100).toFixed(0)}%</div></div><div class="prob-item"><div class="lbl">2</div><div class="val" style="font-size:18px">${c.away_odds||'-'}</div><div style="font-size:9px;color:var(--ink3)">${((c.implied_away||0)*100).toFixed(0)}%</div></div></div></div>`;
+    }
+    if(data.ml_prediction){
+      const p=data.ml_prediction,prob=p.probabilities||{};
+      const hw=prob.home_win||0,dr=prob.draw||0,aw=prob.away_win||0,best=Math.max(hw,dr,aw);
+      const src=data.ml_source==='sstats_odds'?' (котировки)':'';
+      html+=`<div class="card"><div class="card-t">Прогноз${src}</div><div class="prob-grid"><div class="prob-item ${best===hw?'best':''}"><div class="lbl">1</div><div class="val">${hw.toFixed(1)}%</div></div><div class="prob-item ${best===dr?'best':''}"><div class="lbl">X</div><div class="val">${dr.toFixed(1)}%</div></div><div class="prob-item ${best===aw?'best':''}"><div class="lbl">2</div><div class="val">${aw.toFixed(1)}%</div></div></div><div class="mc-bar" style="height:6px"><div class="h" style="width:${hw}%"></div><div class="d" style="width:${dr}%"></div><div class="a" style="width:${aw}%"></div></div></div>`;
+    }
+    if(data.injuries&&data.injuries.length){
+      html+=`<div class="card"><div class="card-t">Травмы</div>`;
+      data.injuries.forEach(inj=>{html+=`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--sheetline)">${inj.playerName||'?'} — ${inj.reason||'?'}</div>`});
+      html+='</div>';
+    }
+    if(data.text_summary){
+      html+=`<div class="card"><div class="card-t">Экспертный комментарий</div><div class="ai-text" style="font-size:11px">${esc(data.text_summary)}</div></div>`;
+    }
+    // AI Analysis button
+    html+=`<div id="pm-ai-section">
+      <button class="btn" id="pm-ai-btn" onclick="runPrematchAI(${gameId})">AI-анализ VisionPro</button>
+    </div>`;
+    html+=`<div id="pm-ai-loading" style="display:none" class="card">
+      <div style="display:flex;align-items:center;gap:10px"><div class="spinner"></div>
+      <div><div style="font-weight:600;font-size:12px" id="pm-ai-msg">Запуск анализа...</div>
+      <div id="pm-ai-log" style="font-size:10px;color:var(--ink3);margin-top:4px;max-height:80px;overflow-y:auto"></div></div></div>
+    </div>`;
+    html+=`<div id="pm-ai-result" style="display:none"></div>`;
+    detail.innerHTML=html;
+  }catch(e){detail.innerHTML=`<div class="card" style="color:var(--red)">Ошибка: ${e.message}</div>`}
+}
+
+async function runPrematchAI(gameId){
+  const btn=document.getElementById('pm-ai-btn');
+  const loading=document.getElementById('pm-ai-loading');
+  const result=document.getElementById('pm-ai-result');
+  btn.disabled=true;btn.textContent='Запуск...';
+  loading.style.display='block';result.style.display='none';
+  const logEl=document.getElementById('pm-ai-log');
+  const msgEl=document.getElementById('pm-ai-msg');
+  logEl.innerHTML='';
+
+  try{
+    const r=await fetch(API+`/api/prematch/${gameId}/analyze`,{method:'POST'});
+    const data=await r.json();
+    if(!data.ok){throw new Error(data.detail||'Ошибка запуска')}
+
+    // Stream progress via SSE (EventSource)
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{es.close();reject(new Error('Таймаут (120с)'))},120000);
+      const es=new EventSource(API+'/api/collect/stream?since=0');
+      es.onmessage=(e)=>{
+        try{
+          const ev=JSON.parse(e.data);
+          if(ev.type==='info'&&ev.msg){
+            msgEl.textContent=ev.msg;
+            logEl.innerHTML+=`<div style="font-size:10px;color:var(--ink3)">${ev.msg}</div>`;
+            logEl.scrollTop=logEl.scrollHeight;
+          }
+          if(ev.type==='result'&&ev.prediction){
+            es.close();clearTimeout(timeout);
+            resolve(ev.prediction);
+          }
+          if(ev.type==='error'){
+            es.close();clearTimeout(timeout);
+            reject(new Error(ev.msg));
+          }
+          if(ev.type==='done'){
+            // Job finished, check for result
+            es.close();clearTimeout(timeout);
+            fetch(API+'/api/collect/status').then(r=>r.json()).then(st=>{
+              if(st.result)resolve(st.result);
+              else reject(new Error('Результат не получен'));
+            });
+          }
+        }catch(pe){}
+      };
+      es.onerror=()=>{
+        // Reconnect or give up after timeout
+      };
+    }).then(predData=>{
+      renderPrematchAI(predData);
+      const el=document.getElementById('pm-ai-result');
+      if(el)el.style.cssText='display:block!important';
+      if(TG?.HapticFeedback)TG.HapticFeedback.notificationOccurred('success');
+    });
+  }catch(e){
+    result.innerHTML=`<div class="card" style="color:var(--red)">${e.message}</div>`;
+    result.style.display='block';
+  }
+  loading.style.display='none';
+  btn.disabled=false;btn.textContent='AI-анализ VisionPro';
+}
+
+function renderPrematchAI(data){
+  const result=document.getElementById('pm-ai-result');
+  let html='';
+  const pred=data.prediction;
+  if(pred&&pred.probabilities){
+    const p=pred.probabilities;
+    const hw=p.home_win||0,dr=p.draw||0,aw=p.away_win||0,tot=hw+dr+aw||1;
+    const hp=(hw/tot*100).toFixed(1),dp=(dr/tot*100).toFixed(1),ap=(aw/tot*100).toFixed(1);
+    const best=Math.max(hw,dr,aw);
+    html+=`<div class="card"><div class="card-t">Прогноз модели</div>
+      <div class="prob-grid">
+        <div class="prob-item ${best===hw?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--green)">${hp}%</div></div>
+        <div class="prob-item ${best===dr?'best':''}"><div class="lbl">Ничья</div><div class="val" style="color:var(--amber)">${dp}%</div></div>
+        <div class="prob-item ${best===aw?'best':''}"><div class="lbl">Победа</div><div class="val" style="color:var(--red)">${ap}%</div></div>
+      </div>
+      <div class="mc-bar" style="height:8px"><div class="h" style="width:${hp}%"></div><div class="d" style="width:${dp}%"></div><div class="a" style="width:${ap}%"></div></div></div>`;
+  }
+  if(data.analysis){
+    const txt=data.analysis;
+    let mainBet='',confidence='';
+    const probMatch=txt.match(/PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+):bet=([^:]+):confidence=([^\s]+)/);
+    if(probMatch){mainBet=probMatch[4].trim();confidence=probMatch[5].trim()}
+    else{
+      const bm=txt.match(/ГЛАВНЫЙ ПРОГНОЗ.*?:\s*(.+)/i);if(bm)mainBet=bm[1].trim();
+      const cm=txt.match(/уверенност[ьи]?\s*[:=]?\s*(высокая|средняя|низкая)/i);if(cm)confidence=cm[1].toLowerCase();
+    }
+    let clean=txt.replace(/PROB:home=[\d.]+:draw=[\d.]+:away=[\d.]+:bet=[^:]+:confidence=[^\s]+/,'').trim();
+    html+=`<div class="card"><div class="card-t">AI Разбор VisionPro</div><div class="ai-text">${esc(clean)}</div>`;
+    if(mainBet){
+      const cg=confGaugeMini(confidence);
+      html+=`<div class="pred-box ${cg.cls}"><div class="lbl"><span class="pred-icon">🎯</span>ГЛАВНЫЙ ПРОГНОЗ</div><div class="txt">${esc(mainBet)}</div>${cg.html}</div>`;
+    }
+    html+=`</div>`;
+  }
+  // Save button
+  html+=`<div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-tint btn-sm" id="pm-save-btn" onclick="savePrematchPrediction()">Сохранить прогноз</button></div>`;
+  result.innerHTML=html;
+  result.style.display='block';
+  window._lastAnalysis=data;
+}
+
+function savePrematchPrediction(){
+  const d=window._lastAnalysis;if(!d)return;
+  const p=d.prediction?.probabilities||{};
+  fetch(API+'/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      home_name:d.home?.name||window._pmData?.home||'',
+      away_name:d.away?.name||window._pmData?.away||'',
+      league:window._pmData?.league||'',
+      match_date:window._pmData?.date||'',
+      analysis:d.analysis||'',
+      home_win:p.home_win||null,
+      draw_prob:p.draw||null,
+      away_win:p.away_win||null,
+      model_used:d.model_used||''
+    })
+  }).then(()=>{const b=document.getElementById('pm-save-btn');b.textContent='Сохранено!';b.disabled=true;setTimeout(()=>{b.textContent='Сохранить прогноз';b.disabled=false},2000)});
+}
+
+function backFromDetail(){
+  const d=document.getElementById('pm-detail');
+  if(d.style.display==='block'){
+    d.style.display='none';
+    document.getElementById('pm-list').style.display='block';
+  }
+}
+
+// ── Accuracy ──
+async function loadAccuracy(){
+  const body=document.getElementById('acc-body');
+  try{
+    const r=await fetch(API+'/api/model-stats');
+    const data=await r.json();
+    const acc=data.accuracy||data.cv_accuracy||0;
+    let html=`<div style="text-align:center;margin:12px 0"><div style="font-size:38px;font-weight:900;font-family:var(--mono);background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${acc?(acc*100).toFixed(1)+'%':'N/A'}</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">Средняя точность</div></div>`;
+    if(data.per_league){
+      html+='<div style="margin-top:12px">';
+      Object.entries(data.per_league).sort((a,b)=>b[1]-a[1]).forEach(([lg,v])=>{
+        const pct=(v*100).toFixed(1);
+        const c=v>0.5?'var(--green)':v>0.4?'var(--amber)':'var(--red)';
+        html+=`<div class="acc-row"><span style="font-weight:600">${lg.replace(/_/g,' ')}</span><div class="acc-bar"><div class="acc-fill" style="width:${pct}%;background:${c}"></div></div><span class="acc-pct" style="color:${c}">${pct}%</span></div>`;
+      });
+      html+='</div>';
+    }
+    body.innerHTML=html;
+  }catch(e){body.innerHTML='<div style="text-align:center;padding:16px;color:var(--ink3)">Нет данных о точности</div>'}
+}
+
+// ── Modal ──
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+
+// ── Helpers ──
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function confGaugeMini(confidenceStr){
+  const s=(confidenceStr||'').toLowerCase();
+  let level,pct,color,label,cls;
+  if(s.includes('высок')||s.includes('high')){level='high';pct=85;color='#10b981';label='Высокая';cls='conf-high'}
+  else if(s.includes('очень низк')||s.includes('very low')){level='very-low';pct=20;color='#0a4a3d';label='Очень низкая';cls='conf-very-low'}
+  else if(s.includes('низк')||s.includes('low')){level='low';pct=35;color='#0a6b57';label='Низкая';cls='conf-low'}
+  else{level='medium';pct=60;color='#0d9273';label='Средняя';cls='conf-medium'}
+  return {html:`<div class="conf-gauge"><div class="conf-gauge-track"><div class="conf-gauge-fill g-${level}" style="width:${pct}%"></div></div><span class="conf-gauge-label" style="color:${color}">${label}</span></div>`,cls:cls};
+}
+
+// Golden particles
+(function(){
+  const c=document.getElementById('goldenParticles');
+  if(!c)return;
+  for(let i=0;i<15;i++){
+    const s=document.createElement('span');
+    s.style.left=Math.random()*100+'%';
+    s.style.animationDuration=(8+Math.random()*12)+'s';
+    s.style.animationDelay=(Math.random()*15)+'s';
+    s.style.width=s.style.height=(1+Math.random()*2)+'px';
+    c.appendChild(s);
+  }
+})();
 </script>
 </body>
 </html>

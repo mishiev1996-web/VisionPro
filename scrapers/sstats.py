@@ -92,6 +92,42 @@ def fetch_games_by_date(date_iso: str) -> List[dict]:
     return (data or {}).get("data") or []
 
 
+def fetch_upcoming_by_team(team_id: int) -> List[dict]:
+    """Upcoming matches for a specific team (status 1,2 + date > now)."""
+    data = _fetch_one(f"/Games/list?upcoming=true&team={team_id}")
+    return (data or {}).get("data") or []
+
+
+def fetch_upcoming_all() -> List[dict]:
+    """All upcoming worldwide matches — upcoming filter + today's remaining."""
+    # 1. Upcoming filter (may miss some due to limit=1000)
+    upcoming = _fetch_one("/Games/list?upcoming=true&limit=1000") or {}
+    games = (upcoming.get("data") or [])
+    seen_ids = {g["id"] for g in games}
+
+    # 2. Also fetch today's Not Started matches (catches what upcoming misses)
+    today = __import__("datetime").date.today().isoformat()
+    today_data = _fetch_one(f"/Games/list?date={today}&status=2") or {}
+    for g in (today_data.get("data") or []):
+        if g.get("id") not in seen_ids:
+            games.append(g)
+            seen_ids.add(g["id"])
+
+    return games
+
+
+def fetch_live_matches() -> List[dict]:
+    """All currently live matches worldwide."""
+    data = _fetch_one("/Games/list?live=true&limit=1000") or {}
+    return (data or {}).get("data") or []
+
+
+def fetch_h2h(team1_id: int, team2_id: int) -> List[dict]:
+    """Head-to-head: all ended matches between two teams."""
+    data = _fetch_one(f"/Games/list?ended=true&bothTeams={team1_id},{team2_id}")
+    return (data or {}).get("data") or []
+
+
 def fetch_games_by_league(league_id: int, page: int = 0) -> List[dict]:
     """Paginated league history (1000 per page)."""
     suffix = f"&page={page}" if page else ""
@@ -111,11 +147,17 @@ def fetch_glicko(game_id: int) -> Optional[dict]:
 
 def fetch_text_summary(game_id: int) -> Optional[str]:
     """Pre-built Russian text summary with bookmaker predictions."""
-    results = _fetch_batch([{"url": f"{SSTATS_BASE}/Games/text-summary?id={game_id}"}])
-    if results and results[0]:
-        # /Games/text-summary returns plain text, not JSON
-        return results[0] if isinstance(results[0], str) else None
-    return None
+    _rate_limit()
+    import urllib.request
+    headers = {"apikey": SSTATS_KEY, "User-Agent": "Mozilla/5.0 (Football-AI)"}
+    url = f"{SSTATS_BASE}/Games/text-summary?id={game_id}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            text = resp.read().decode("utf-8")
+            return text if text.strip() else None
+    except Exception:
+        return None
 
 
 def fetch_odds(game_id: int) -> List[dict]:
@@ -270,6 +312,60 @@ def consensus_odds(odds_blocks: List[dict]) -> Optional[Dict[str, float]]:
         "bookmaker_count": len(h_vals),
         "overround_pct": round((s - 1) * 100, 2),   # bookmaker margin (vig)
     }
+
+
+def consensus_over_under(odds_blocks: List[dict]) -> Optional[Dict[str, Dict[str, float]]]:
+    """Compute Over/Under implied probabilities for each line from bookmaker consensus.
+
+    Returns dict like {"2.5": {"over": 0.58, "under": 0.42, "avg_over_odds": 1.72, ...}, ...}
+    or None if no Goals Over/Under data found.
+    """
+    import re
+    if not odds_blocks:
+        return None
+    # Group by line: {line_str: {"over": [odds], "under": [odds]}}
+    by_line: Dict[str, Dict[str, List[float]]] = {}
+    for bm in odds_blocks:
+        for m in (bm.get("odds") or []):
+            if m.get("marketName") != "Goals Over/Under":
+                continue
+            for o in (m.get("odds") or []):
+                name = (o.get("name") or "").strip()
+                v = o.get("value")
+                if v is None or v <= 1.0:
+                    continue
+                # Parse "Over 2.5" or "Under 1.5"
+                match = re.match(r"(Over|Under)\s+([\d.]+)", name, re.IGNORECASE)
+                if not match:
+                    continue
+                side = match.group(1).lower()
+                line = match.group(2)
+                by_line.setdefault(line, {"over": [], "under": []})
+                by_line[line][side].append(float(v))
+
+    if not by_line:
+        return None
+
+    result = {}
+    for line, vals in sorted(by_line.items(), key=lambda x: float(x[0])):
+        over_odds = vals["over"]
+        under_odds = vals["under"]
+        if not over_odds or not under_odds:
+            continue
+        avg_over = sum(over_odds) / len(over_odds)
+        avg_under = sum(under_odds) / len(under_odds)
+        inv_over = 1 / avg_over
+        inv_under = 1 / avg_under
+        s = inv_over + inv_under
+        result[line] = {
+            "over": round(inv_over / s, 4),
+            "under": round(inv_under / s, 4),
+            "avg_over_odds": round(avg_over, 3),
+            "avg_under_odds": round(avg_under, 3),
+            "bookmaker_count": max(len(over_odds), len(under_odds)),
+        }
+
+    return result if result else None
 
 
 def market_dispersion(odds_blocks: List[dict]) -> Optional[Dict[str, float]]:

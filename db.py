@@ -161,9 +161,15 @@ CREATE TABLE IF NOT EXISTS predictions (
     btts_no     REAL,
     exact_score TEXT,
     model_used  TEXT,
+    prediction_type TEXT DEFAULT 'analysis',
+    game_id     INTEGER,
+    actual_result TEXT,
+    is_correct  INTEGER,
+    settled_at  TEXT,
     created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_predictions_date ON predictions(created_at);
+CREATE INDEX IF NOT EXISTS idx_predictions_type ON predictions(prediction_type);
 
 -- ── SStats detailed match data ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sstats_matches (
@@ -261,15 +267,29 @@ CREATE TABLE IF NOT EXISTS data_quality (
     coverage_elo_pct REAL DEFAULT 0,
     details     TEXT                  -- JSON with per-league breakdown
 );
+
+-- ── SStats injuries (per-match) ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sstats_injuries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id     INTEGER NOT NULL,
+    player_name TEXT NOT NULL,
+    team_id     INTEGER,
+    reason      TEXT,
+    collected_at TEXT NOT NULL,
+    FOREIGN KEY (game_id) REFERENCES sstats_matches(game_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sstats_inj_game ON sstats_injuries(game_id);
 """
 
 
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
+        # Check if predictions table exists and needs migration
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "predictions" in tables:
+            _migrate(conn)
         conn.executescript(SCHEMA)
-        # Migrations for existing databases
-        _migrate(conn)
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
@@ -278,6 +298,19 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(leagues)").fetchall()}
     if "source_tier" not in cols:
         conn.execute("ALTER TABLE leagues ADD COLUMN source_tier INTEGER NOT NULL DEFAULT 1")
+
+    # Check predictions table columns
+    pred_cols = {r[1] for r in conn.execute("PRAGMA table_info(predictions)").fetchall()}
+    if "prediction_type" not in pred_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN prediction_type TEXT DEFAULT 'analysis'")
+    if "game_id" not in pred_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN game_id INTEGER")
+    if "actual_result" not in pred_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN actual_result TEXT")
+    if "is_correct" not in pred_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN is_correct INTEGER")
+    if "settled_at" not in pred_cols:
+        conn.execute("ALTER TABLE predictions ADD COLUMN settled_at TEXT")
 
 
 def delete_db() -> None:
@@ -289,8 +322,10 @@ def delete_db() -> None:
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     try:
         yield conn
         conn.commit()
@@ -722,6 +757,20 @@ def upsert_match_odds(conn: sqlite3.Connection, match_id: int,
                       home_odds: float, draw_odds: float, away_odds: float,
                       implied_h: float, implied_d: float, implied_a: float,
                       source: str, updated_at: str) -> None:
+    # Source priority: higher = more trustworthy. sstats_consensus is lowest.
+    SOURCE_PRIORITY = {
+        "pinnacle_close": 40, "bet365": 30, "market_avg": 20,
+        "historical_odds": 15, "sstats_consensus": 5,
+    }
+    new_prio = SOURCE_PRIORITY.get(source, 10)
+    # Check existing source — don't overwrite a higher-priority source
+    existing = conn.execute(
+        "SELECT source FROM match_odds WHERE match_id=?", (match_id,)
+    ).fetchone()
+    if existing:
+        existing_prio = SOURCE_PRIORITY.get(existing["source"], 10)
+        if new_prio < existing_prio:
+            return  # skip — existing source is more trustworthy
     conn.execute(
         "INSERT INTO match_odds(match_id, home_odds, draw_odds, away_odds, "
         "implied_h, implied_d, implied_a, source, updated_at) "
@@ -772,16 +821,70 @@ def find_match_by_date_teams(league_slug: str, date_iso: str,
 
 
 def bulk_get_elo_at_date(team_dates: List[Tuple[int, str]]) -> Dict[Tuple[int, str], float]:
+    """Batch fetch Elo ratings for multiple (team_id, date) pairs.
+    
+    Uses a single query with subquery to avoid N+1 selects.
+    Falls back to per-row query if batch fails.
+    """
     out: Dict[Tuple[int, str], float] = {}
-    with connect() as conn:
-        for team_id, date in team_dates:
-            row = conn.execute(
-                "SELECT elo FROM team_elo_history "
-                "WHERE team_id=? AND date<=? ORDER BY date DESC LIMIT 1",
-                (team_id, date),
-            ).fetchone()
-            if row:
-                out[(team_id, date)] = row["elo"]
+    if not team_dates:
+        return out
+
+    try:
+        with connect() as conn:
+            # Build a single query with VALUES clause for batch lookup
+            # Each pair gets its elo via a correlated subquery
+            placeholders = ", ".join(["(?, ?)" for _ in team_dates])
+            flat_args = []
+            for tid, dt_str in team_dates:
+                flat_args.extend([tid, dt_str])
+
+            rows = conn.execute(
+                f"SELECT team_id, date, elo FROM team_elo_history "
+                f"WHERE (team_id, date) IN ({placeholders}) "
+                f"ORDER BY team_id, date DESC",
+                flat_args,
+            ).fetchall()
+
+            # For each unique team_id, find the most recent elo <= requested date
+            from collections import defaultdict
+            team_elos = defaultdict(list)
+            for r in rows:
+                team_elos[r["team_id"]].append((r["date"], r["elo"]))
+
+            for team_id, date in team_dates:
+                elos = team_elos.get(team_id, [])
+                # Find most recent elo <= date
+                best = None
+                for ed, ev in elos:
+                    if ed <= date:
+                        best = ev
+                        break  # already sorted DESC
+                if best is not None:
+                    out[(team_id, date)] = best
+
+            # Fallback for missing entries
+            missing = [(tid, dt) for tid, dt in team_dates if (tid, dt) not in out]
+            for team_id, date in missing:
+                row = conn.execute(
+                    "SELECT elo FROM team_elo_history "
+                    "WHERE team_id=? AND date<=? ORDER BY date DESC LIMIT 1",
+                    (team_id, date),
+                ).fetchone()
+                if row:
+                    out[(team_id, date)] = row["elo"]
+
+    except Exception:
+        # Fallback to per-row query
+        with connect() as conn:
+            for team_id, date in team_dates:
+                row = conn.execute(
+                    "SELECT elo FROM team_elo_history "
+                    "WHERE team_id=? AND date<=? ORDER BY date DESC LIMIT 1",
+                    (team_id, date),
+                ).fetchone()
+                if row:
+                    out[(team_id, date)] = row["elo"]
     return out
 
 
@@ -933,8 +1036,8 @@ def save_prediction(p: Dict[str, Any]) -> int:
             "INSERT INTO predictions "
             "(home_name, away_name, league, match_date, analysis, main_bet, "
             " confidence, home_win, draw_prob, away_win, total_over, total_under, "
-            " btts_yes, btts_no, exact_score, model_used, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " btts_yes, btts_no, exact_score, model_used, prediction_type, game_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 p.get("home_name", ""),
                 p.get("away_name", ""),
@@ -952,10 +1055,207 @@ def save_prediction(p: Dict[str, Any]) -> int:
                 p.get("btts_no"),
                 p.get("exact_score", ""),
                 p.get("model_used", ""),
+                p.get("prediction_type", "analysis"),
+                p.get("game_id"),
                 p.get("created_at", dt.datetime.now().isoformat(timespec="seconds")),
             ),
         )
         return cur.lastrowid
+
+
+def update_prediction_result(pred_id: int, actual_result: str, is_correct: bool) -> bool:
+    """Update prediction with actual result and correctness."""
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE predictions SET actual_result=?, is_correct=? WHERE id=?",
+            (actual_result, 1 if is_correct else 0, pred_id),
+        )
+        return cur.rowcount > 0
+
+
+def check_pending_predictions() -> List[Dict[str, Any]]:
+    """Get predictions that haven't been checked yet."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM predictions WHERE actual_result IS NULL AND game_id IS NOT NULL"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def settle_predictions() -> Dict[str, Any]:
+    """Match saved predictions to actual results and update DB.
+
+    Returns stats: {total_pending, settled, correct, not_found}.
+    """
+    import datetime as _dt
+    now = _dt.datetime.now().isoformat(timespec="seconds")
+
+    with connect() as conn:
+        # Get unsettled predictions where match_date is in the past
+        today = _dt.date.today().isoformat()
+        pending = conn.execute(
+            "SELECT * FROM predictions WHERE actual_result IS NULL "
+            "AND match_date IS NOT NULL AND match_date != '' AND match_date < ?",
+            (today,),
+        ).fetchall()
+
+        settled = 0
+        correct = 0
+        not_found = 0
+
+        for p in pending:
+            pid = p["id"]
+            home = p["home_name"]
+            away = p["away_name"]
+            mdate = (p["match_date"] or "")[:10]
+            main_bet = (p["main_bet"] or "").lower()
+
+            # Strategy 1: look up in matches table by team names + date
+            row = conn.execute(
+                "SELECT m.home_goals, m.away_goals "
+                "FROM matches m "
+                "JOIN teams th ON th.id = m.home_id "
+                "JOIN teams ta ON ta.id = m.away_id "
+                "WHERE m.is_result=1 AND m.date LIKE ? "
+                "AND LOWER(th.name)=? AND LOWER(ta.name)=?",
+                (f"{mdate}%", home.lower().strip(), away.lower().strip()),
+            ).fetchone()
+
+            # Strategy 2: look up in sstats_matches
+            if not row:
+                row = conn.execute(
+                    "SELECT home_result AS home_goals, away_result AS away_goals "
+                    "FROM sstats_matches "
+                    "WHERE date LIKE ? "
+                    "AND LOWER(home_team)=? AND LOWER(away_team)=?",
+                    (f"{mdate}%", home.lower().strip(), away.lower().strip()),
+                ).fetchone()
+
+            # Strategy 3: fuzzy — try partial name match
+            if not row:
+                row = conn.execute(
+                    "SELECT m.home_goals, m.away_goals "
+                    "FROM matches m "
+                    "JOIN teams th ON th.id = m.home_id "
+                    "JOIN teams ta ON ta.id = m.away_id "
+                    "WHERE m.is_result=1 AND m.date LIKE ? "
+                    "AND (LOWER(th.name) LIKE ? OR ? LIKE LOWER(th.name)) "
+                    "AND (LOWER(ta.name) LIKE ? OR ? LIKE LOWER(ta.name))",
+                    (f"{mdate}%", f"%{home.lower().strip()}%", home.lower().strip(),
+                     f"%{away.lower().strip()}%", away.lower().strip()),
+                ).fetchone()
+
+            if not row or row["home_goals"] is None:
+                not_found += 1
+                continue
+
+            hg, ag = row["home_goals"], row["away_goals"]
+
+            # Determine actual outcome
+            if hg > ag:
+                actual = "home"
+            elif hg == ag:
+                actual = "draw"
+            else:
+                actual = "away"
+
+            # Check if main_bet matches
+            is_correct = _check_bet_correct(main_bet, actual, hg, ag)
+
+            conn.execute(
+                "UPDATE predictions SET actual_result=?, is_correct=?, settled_at=? WHERE id=?",
+                (f"{hg}-{ag} ({actual})", 1 if is_correct else 0, now, pid),
+            )
+            settled += 1
+            if is_correct:
+                correct += 1
+
+        conn.commit()
+
+    return {
+        "total_pending": len(pending),
+        "settled": settled,
+        "correct": correct,
+        "not_found": not_found,
+        "hit_rate": round(correct / settled * 100, 1) if settled > 0 else 0,
+    }
+
+
+def _check_bet_correct(bet: str, actual: str, hg: int, ag: int) -> bool:
+    """Check if a main_bet string matches the actual outcome."""
+    if not bet:
+        return False
+    if actual == "home" and any(w in bet for w in ["победа хозяев", "home", "1", "хозяев"]):
+        return True
+    if actual == "away" and any(w in bet for w in ["победа гостей", "away", "2", "гостей"]):
+        return True
+    if actual == "draw" and any(w in bet for w in ["ничья", "draw", "x"]):
+        return True
+    total = hg + ag
+    if "больше 2.5" in bet or "tb 2.5" in bet or "over 2.5" in bet:
+        return total > 2.5
+    if "меньше 2.5" in bet or "tm 2.5" in bet or "under 2.5" in bet:
+        return total < 2.5
+    if "обе забьют" in bet and "да" in bet:
+        return hg > 0 and ag > 0
+    if "обе забьют" in bet and "нет" in bet:
+        return hg == 0 or ag == 0
+    return False
+
+
+def prediction_stats() -> Dict[str, Any]:
+    """Aggregated stats for settled predictions."""
+    with connect() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+        settled = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE actual_result IS NOT NULL"
+        ).fetchone()[0]
+        correct = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE is_correct=1"
+        ).fetchone()[0]
+        pending = total - settled
+
+        # By confidence
+        by_conf = conn.execute(
+            "SELECT confidence, COUNT(*) as n, "
+            "SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as c "
+            "FROM predictions WHERE actual_result IS NOT NULL "
+            "GROUP BY confidence ORDER BY confidence"
+        ).fetchall()
+
+        # By month
+        by_month = conn.execute(
+            "SELECT SUBSTR(created_at, 1, 7) as month, COUNT(*) as n, "
+            "SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as c "
+            "FROM predictions WHERE actual_result IS NOT NULL "
+            "GROUP BY month ORDER BY month"
+        ).fetchall()
+
+        # By week (last 12 weeks)
+        by_week = conn.execute(
+            "SELECT SUBSTR(created_at, 1, 10) as day, COUNT(*) as n, "
+            "SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as c "
+            "FROM predictions WHERE actual_result IS NOT NULL "
+            "GROUP BY day ORDER BY day DESC LIMIT 84"
+        ).fetchall()
+
+    return {
+        "total": total,
+        "settled": settled,
+        "correct": correct,
+        "pending": pending,
+        "hit_rate": round(correct / settled * 100, 1) if settled > 0 else 0,
+        "by_confidence": [
+            {"confidence": r[0] or "None", "total": r[1], "correct": r[2] or 0,
+             "hit_rate": round((r[2] or 0) / r[1] * 100, 1) if r[1] > 0 else 0}
+            for r in by_conf
+        ],
+        "by_month": [
+            {"month": r[0], "total": r[1], "correct": r[2] or 0,
+             "hit_rate": round((r[2] or 0) / r[1] * 100, 1) if r[1] > 0 else 0}
+            for r in by_month
+        ],
+    }
 
 
 def list_predictions(limit: int = 50) -> List[Dict[str, Any]]:
@@ -1017,7 +1317,7 @@ def save_sstats_match(conn: sqlite3.Connection, game: dict, collected_at: str) -
             game.get("awayHTResult"),
             game.get("roundName", ""),
             (game.get("venue") or {}).get("fullName", ""),
-            str(game),
+            json.dumps(game, ensure_ascii=False, default=str),
             collected_at,
         ),
     )
@@ -1048,31 +1348,67 @@ def save_sstats_odds(conn: sqlite3.Connection, game_id: int,
 
 def save_sstats_statistics(conn: sqlite3.Connection, game_id: int,
                            stats, collected_at: str) -> int:
-    """Save match statistics from sstats to DB."""
+    """Save match statistics from sstats to DB.
+
+    API format (flat dict):
+        {"shotsOnGoalHome": 10, "shotsOnGoalAway": 4, "totalShotsHome": 22, ...}
+
+    Saves as one row per stat: stat_name, home_value, away_value.
+    """
     if not stats:
         return 0
     conn.execute("DELETE FROM sstats_statistics WHERE game_id=?", (game_id,))
     saved = 0
+
     if isinstance(stats, dict):
-        stats = list(stats.values()) if stats else []
-    for s in (stats if isinstance(stats, list) else []):
-        if isinstance(s, dict):
-            name = s.get("name", "")
-            home_val = str((s.get("home") or {}).get("value", ""))
-            away_val = str((s.get("away") or {}).get("value", ""))
-            if name:
-                conn.execute(
-                    "INSERT INTO sstats_statistics(game_id, stat_name, home_value, away_value, collected_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (game_id, name, home_val, away_val, collected_at),
-                )
-                saved += 1
+        # Group by stat name: shotsOnGoalHome + shotsOnGoalAway → shotsOnGoal
+        grouped = {}
+        for key, value in stats.items():
+            if value is None:
+                continue
+            if key.endswith("Home"):
+                stat_name = key[:-4]
+                if stat_name not in grouped:
+                    grouped[stat_name] = {"home": "", "away": ""}
+                grouped[stat_name]["home"] = str(value)
+            elif key.endswith("Away"):
+                stat_name = key[:-4]
+                if stat_name not in grouped:
+                    grouped[stat_name] = {"home": "", "away": ""}
+                grouped[stat_name]["away"] = str(value)
+
+        for stat_name, vals in grouped.items():
+            conn.execute(
+                "INSERT INTO sstats_statistics(game_id, stat_name, home_value, away_value, collected_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (game_id, stat_name, vals["home"], vals["away"], collected_at),
+            )
+            saved += 1
+
+    elif isinstance(stats, list):
+        # Legacy list format: [{name, home: {value}, away: {value}}]
+        for s in stats:
+            if isinstance(s, dict):
+                name = s.get("name", "")
+                home_val = str((s.get("home") or {}).get("value", ""))
+                away_val = str((s.get("away") or {}).get("value", ""))
+                if name:
+                    conn.execute(
+                        "INSERT INTO sstats_statistics(game_id, stat_name, home_value, away_value, collected_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (game_id, name, home_val, away_val, collected_at),
+                    )
+                    saved += 1
+
     return saved
 
 
 def save_sstats_events(conn: sqlite3.Connection, game_id: int,
                        events, collected_at: str) -> int:
-    """Save match events from sstats to DB."""
+    """Save match events from sstats to DB.
+
+    API format: {'elapsed': 55, 'type': 3, 'name': 'Goal', 'player': {...}, 'teamId': 123}
+    """
     if not events:
         return 0
     conn.execute("DELETE FROM sstats_events WHERE game_id=?", (game_id,))
@@ -1084,10 +1420,10 @@ def save_sstats_events(conn: sqlite3.Connection, game_id: int,
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     game_id,
-                    ev.get("minute"),
-                    ev.get("type", ""),
+                    ev.get("elapsed"),  # API uses 'elapsed', not 'minute'
+                    ev.get("name", ""),  # API uses 'name' for event type text
                     (ev.get("player") or {}).get("name", ""),
-                    ev.get("team", ""),
+                    str(ev.get("teamId", "")),  # API uses 'teamId'
                     ev.get("detail", ""),
                     collected_at,
                 ),
@@ -1129,3 +1465,29 @@ def get_sstats_events(game_id: int) -> List[Dict[str, Any]]:
             (game_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def save_sstats_injuries(conn: sqlite3.Connection, game_id: int,
+                         injuries: list, collected_at: str) -> int:
+    """Save injuries from sstats API to DB.
+
+    API format: [{'player': {'name': '...'}, 'teamId': 123, 'reason': '...'}]
+    """
+    if not injuries or not isinstance(injuries, list):
+        return 0
+    conn.execute("DELETE FROM sstats_injuries WHERE game_id=?", (game_id,))
+    saved = 0
+    for inj in injuries:
+        if not isinstance(inj, dict):
+            continue
+        player = inj.get("player") or {}
+        player_name = player.get("name", "") if isinstance(player, dict) else str(player)
+        if not player_name:
+            continue
+        conn.execute(
+            "INSERT INTO sstats_injuries(game_id, player_name, team_id, reason, collected_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (game_id, player_name, inj.get("teamId"), inj.get("reason", ""), collected_at),
+        )
+        saved += 1
+    return saved

@@ -7,7 +7,9 @@ import datetime as dt
 import json
 import math
 import os
-from typing import Dict, Optional, Tuple
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,13 +22,14 @@ from sklearn.utils.class_weight import compute_sample_weight
 from xgboost import XGBClassifier
 
 from models.dixon_coles import DixonColes
+import config
 
-
-USE_CLASS_WEIGHTS = True
-PER_LEAGUE_PROVES_ITSELF = True
-MIN_LEAGUE_TRAIN_ROWS = 3000
-TIME_DECAY_HALF_LIFE_DAYS = 365
-N_OOF_FOLDS = 5
+# Re-export from config for backward compatibility
+USE_CLASS_WEIGHTS = config.USE_CLASS_WEIGHTS
+PER_LEAGUE_PROVES_ITSELF = config.PER_LEAGUE_PROVES_ITSELF
+MIN_LEAGUE_TRAIN_ROWS = config.MIN_LEAGUE_TRAIN_ROWS
+TIME_DECAY_HALF_LIFE_DAYS = config.TIME_DECAY_HALF_LIFE_DAYS
+N_OOF_FOLDS = config.N_OOF_FOLDS
 
 
 def _load_tuned_params() -> Dict:
@@ -42,6 +45,34 @@ def _load_tuned_params() -> Dict:
 
 TUNED = _load_tuned_params()
 DC_BLEND_WEIGHT = TUNED.get("dc_weight", 0.20)
+# Parallel Dixon-Coles: threads ok (numpy/scipy release GIL). Cap workers
+# so we leave headroom for the OS; biggest leagues dominate wall time anyway.
+DC_MAX_WORKERS = max(1, min(6, (os.cpu_count() or 4) - 1))
+
+
+def _fit_dc_league(
+    slug: str,
+    matches: List[dict],
+    ref: str,
+    dc_xi: float,
+) -> Tuple[str, DixonColes, float]:
+    """Worker for parallel per-league Dixon-Coles fit. Returns (slug, model, secs)."""
+    t0 = time.time()
+    print(
+        f"    [{slug}] Dixon-Coles START — {len(matches)} matches "
+        f"(xi={dc_xi:.4f})",
+        flush=True,
+    )
+    dc = DixonColes(decay_xi=dc_xi).fit(
+        matches, reference_date=ref, progress_label=slug
+    )
+    elapsed = time.time() - t0
+    status = "ok" if dc.fitted else "FAILED"
+    print(
+        f"    [{slug}] Dixon-Coles DONE [{status}] in {elapsed:.1f}s",
+        flush=True,
+    )
+    return slug, dc, elapsed
 
 
 def _make_xgb() -> XGBClassifier:
@@ -55,7 +86,7 @@ def _make_xgb() -> XGBClassifier:
         reg_lambda=TUNED.get("xgb_lambda", 4.0),
         min_child_weight=TUNED.get("xgb_min_child", 4),
         tree_method="hist", eval_metric="mlogloss",
-        random_state=42, verbosity=0,
+        random_state=42, verbosity=0, n_jobs=-1,
     )
 
 
@@ -71,20 +102,21 @@ def _make_lgbm() -> LGBMClassifier:
         reg_lambda=TUNED.get("lgbm_lambda", 1.33),
         min_child_samples=TUNED.get("lgbm_min_child", 20),
         random_state=42, verbosity=-1,
-        force_col_wise=True,
+        force_col_wise=True, n_jobs=-1,
     )
 
 
 def _make_catboost() -> CatBoostClassifier:
     return CatBoostClassifier(
-        iterations=500,
-        learning_rate=0.03,
-        depth=4,
-        l2_leaf_reg=3.0,
+        iterations=max(TUNED.get("cat_iterations", 500), 300),
+        learning_rate=TUNED.get("cat_lr", 0.03),
+        depth=TUNED.get("cat_depth", 4),
+        l2_leaf_reg=TUNED.get("cat_l2", 3.0),
         random_seed=42,
         verbose=0,
         loss_function="MultiClass",
         eval_metric="MultiClass",
+        thread_count=-1,
     )
 
 
@@ -107,7 +139,7 @@ def _time_decay_weights(dates: pd.Series, reference: Optional[str] = None) -> np
             d10 = str(d)[:10]
             md = dt.date.fromisoformat(d10)
             days = max(0, (ref_date - md).days)
-            out[i] = math.exp(-decay * days)
+            out[i] = max(0.05, math.exp(-decay * days))
         except Exception:
             out[i] = 1.0
     return out
@@ -155,7 +187,7 @@ def _fit_calibrated_pair(X: pd.DataFrame, y: pd.Series,
 
 class Ensemble:
     """Soft-voting ensemble: calibrated XGB + LightGBM + Dixon-Coles (per-league)
-    with proper k-fold OOF stacking meta-learner.
+    with proper k-fold OOF stacking meta-learner and temperature scaling.
 
     Class label convention: 0=Away Win, 1=Draw, 2=Home Win.
     """
@@ -164,40 +196,98 @@ class Ensemble:
         self.leagues: Dict[str, Dict] = {}
         self.dc: Dict[str, DixonColes] = {}
         self.meta_learner = None
+        self.temperature = 1.0  # learned temperature for calibration
+        self.calibrator = None  # isotonic calibrator on OOF predictions
 
     def fit(self, X: pd.DataFrame, y: pd.Series, leagues: pd.Series,
             dates: pd.Series, meta: pd.DataFrame) -> None:
-        decay_w = _time_decay_weights(dates)
-        print(f"    time-decay: oldest weight={decay_w.min():.3f}, "
-              f"newest={decay_w.max():.3f}")
+        fit_t0 = time.time()
+        # Use last training date as reference, not "today" — otherwise time decay
+        # is meaningless for CV folds where training data is historical.
+        last_date = str(dates.iloc[-1])[:10]
+        decay_w = _time_decay_weights(dates, reference=last_date)
+        print(
+            f"    time-decay (ref={last_date}): oldest weight={decay_w.min():.3f}, "
+            f"newest={decay_w.max():.3f}",
+            flush=True,
+        )
 
         # Global XGB+LGB+CatBoost
-        print("    [global] fit XGB + LightGBM + CatBoost (calibrated, time-decayed)...")
+        print(
+            "    [global] fit XGB + LightGBM + CatBoost (calibrated, time-decayed)...",
+            flush=True,
+        )
+        t_trees = time.time()
         self.global_model = _fit_calibrated_pair(X, y, decay_w)
+        print(
+            f"    [global] trees done in {time.time() - t_trees:.1f}s",
+            flush=True,
+        )
 
-        # Dixon-Coles per league with per-league decay_xi
+        # Dixon-Coles per league (parallel) with per-league decay_xi
+        dc_jobs: List[Tuple[str, List[dict], str, float]] = []
         for slug in sorted(set(leagues)):
             mask = (leagues == slug)
-            sub = meta[mask].copy()
+            sub = meta[mask]
             sub_dates = dates[mask].reset_index(drop=True)
             matches = [
-                {"home": r["home_name"], "away": r["away_name"],
-                 "home_goals": int(r["home_goals"] or 0),
-                 "away_goals": int(r["away_goals"] or 0),
-                 "date": d}
+                {
+                    "home": r["home_name"],
+                    "away": r["away_name"],
+                    "home_goals": int(r["home_goals"] or 0),
+                    "away_goals": int(r["away_goals"] or 0),
+                    "date": d,
+                }
                 for (_, r), d in zip(sub.iterrows(), sub_dates)
             ]
             if len(matches) < 200:
                 continue
-            print(f"    [{slug}] Dixon-Coles on {len(matches)} matches...")
             try:
-                ref = max(d[:10] for d in sub_dates if d)
-                # Per-league decay_xi from tuned params, fallback to default
-                dc_xi = TUNED.get(f"dc_xi_{slug}", TUNED.get("dc_xi", 0.0065))
-                dc = DixonColes(decay_xi=dc_xi).fit(matches, reference_date=ref)
-                self.dc[slug] = dc
-            except Exception as e:
-                print(f"      DC failed for {slug}: {e}")
+                ref = max(str(d)[:10] for d in sub_dates if d)
+            except ValueError:
+                continue
+            dc_xi = TUNED.get(f"dc_xi_{slug}", TUNED.get("dc_xi", 0.0065))
+            dc_jobs.append((slug, matches, ref, float(dc_xi)))
+
+        # Heaviest leagues first so workers stay busy longer
+        dc_jobs.sort(key=lambda j: len(j[1]), reverse=True)
+        n_workers = min(DC_MAX_WORKERS, max(1, len(dc_jobs)))
+        print(
+            f"    [DC] fitting {len(dc_jobs)} leagues in parallel "
+            f"(workers={n_workers}, cpu={os.cpu_count()})...",
+            flush=True,
+        )
+        for slug, matches, _, _ in dc_jobs:
+            print(f"      queue: {slug} ({len(matches)} matches)", flush=True)
+
+        t_dc = time.time()
+        done = 0
+        if dc_jobs:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                futures = {
+                    pool.submit(_fit_dc_league, slug, matches, ref, xi): slug
+                    for slug, matches, ref, xi in dc_jobs
+                }
+                for fut in as_completed(futures):
+                    slug = futures[fut]
+                    try:
+                        slug_out, dc, _elapsed = fut.result()
+                        if dc.fitted:
+                            self.dc[slug_out] = dc
+                        done += 1
+                        print(
+                            f"    [DC] progress {done}/{len(dc_jobs)} leagues "
+                            f"(last={slug_out}, fitted_ok={dc.fitted})",
+                            flush=True,
+                        )
+                    except Exception as e:
+                        done += 1
+                        print(f"    [DC] {slug} failed: {e}", flush=True)
+        print(
+            f"    [DC] all leagues finished in {time.time() - t_dc:.1f}s "
+            f"({len(self.dc)} models kept)",
+            flush=True,
+        )
 
         if not PER_LEAGUE_PROVES_ITSELF:
             self._fit_meta_learner(X, y, leagues, dates, meta)
@@ -213,7 +303,7 @@ class Ensemble:
             sp = int(len(X_lg) * 0.85)
             X_in, X_val = X_lg.iloc[:sp], X_lg.iloc[sp:]
             y_in, y_val = y_lg.iloc[:sp], y_lg.iloc[sp:]
-            w_in = _time_decay_weights(d_lg.iloc[:sp])
+            w_in = _time_decay_weights(d_lg.iloc[:sp], reference=str(d_lg.iloc[sp-1])[:10])
             candidate = _fit_calibrated_pair(X_in, y_in, w_in)
             cand_proba = (candidate["xgb"].predict_proba(X_val)
                           + candidate["lgbm"].predict_proba(X_val)
@@ -228,18 +318,34 @@ class Ensemble:
             except Exception:
                 continue
             if cand_ll < glob_ll - 0.001:  # cand is better (lower log_loss)
-                w_full = _time_decay_weights(d_lg)
+                w_full = _time_decay_weights(d_lg, reference=str(d_lg.iloc[-1])[:10])
                 self.leagues[slug] = _fit_calibrated_pair(X_lg, y_lg, w_full)
                 print(f"    [{slug}] booster kept (cand LL={cand_ll:.4f} vs glob LL={glob_ll:.4f})")
 
         # Fit stacking meta-learner with proper k-fold OOF
-        self._fit_meta_learner(X, y, leagues, dates, meta)
+        print("    [meta] starting OOF stacking...", flush=True)
+        oof_probas = self._fit_meta_learner(X, y, leagues, dates, meta)
+
+        # Learn temperature for calibration on OOF predictions (not in-sample!)
+        self._fit_temperature_from_oof(oof_probas, y)
+
+        # Fit isotonic calibrator on OOF predictions
+        self._fit_isotonic_from_oof(oof_probas, y)
+        print(
+            f"    [Ensemble.fit] complete in {time.time() - fit_t0:.1f}s",
+            flush=True,
+        )
 
     def _fit_meta_learner(self, X: pd.DataFrame, y: pd.Series,
                           leagues: pd.Series, dates: pd.Series,
-                          meta: pd.DataFrame) -> None:
-        """Fit stacking meta-learner on k-fold OOF predictions from base models."""
-        print("    [meta] fitting stacking meta-learner (k-fold OOF)...")
+                          meta: pd.DataFrame) -> np.ndarray:
+        """Fit stacking meta-learner on k-fold OOF predictions from base models.
+        Returns OOF predictions for temperature calibration."""
+        print(
+            f"    [meta] fitting stacking meta-learner "
+            f"({N_OOF_FOLDS}-fold OOF)...",
+            flush=True,
+        )
         n = len(X)
         oof = np.zeros((n, 12))  # 4 models × 3 classes
 
@@ -261,8 +367,22 @@ class Ensemble:
             lg_val = leagues.iloc[val_start:val_end]
             mt_val = meta.iloc[val_start:val_end]
 
+            print(
+                f"    [meta] fold {fold + 1}/{N_OOF_FOLDS}: "
+                f"train={len(X_tr)}, val={len(X_val)} — fitting trees...",
+                flush=True,
+            )
+            t_fold = time.time()
             # Fit base models on expanding training window
-            pair = _fit_calibrated_pair(X_tr, y_tr, _time_decay_weights(dt_tr))
+            ref_tr = str(dt_tr.iloc[-1])[:10]
+            pair = _fit_calibrated_pair(
+                X_tr, y_tr, _time_decay_weights(dt_tr, reference=ref_tr)
+            )
+            print(
+                f"    [meta] fold {fold + 1}/{N_OOF_FOLDS}: trees done in "
+                f"{time.time() - t_fold:.1f}s",
+                flush=True,
+            )
 
             # Get OOF predictions on validation fold
             p_xgb = pair["xgb"].predict_proba(X_val)
@@ -272,7 +392,9 @@ class Ensemble:
             oof[val_start:val_end, 3:6] = p_lgb
             oof[val_start:val_end, 6:9] = p_cat
 
-            # DC probs on validation
+            # DC probs on validation — using pre-fitted self.dc
+            # (minor in-sample overlap: DC was fit on all training data, but it's
+            # only 1/12 meta-features and the meta-learner re-weights accordingly)
             for i in range(len(X_val)):
                 slug = lg_val.iloc[i]
                 row = mt_val.iloc[i]
@@ -298,10 +420,72 @@ class Ensemble:
         self.meta_learner.fit(oof[used], y.values[used])
         print(f"    [meta] fitted on {used.sum()} OOF samples")
 
+        # Save OOF for external calibration (not in-sample!)
+        self.oof_probas_ = oof[used].copy()
+        self.oof_y_ = y.values[used].copy()
+
+        return oof
+
+    def _fit_temperature_from_oof(self, oof: np.ndarray, y: pd.Series) -> None:
+        """Learn optimal temperature for probability calibration using OOF predictions.
+        
+        Temperature scaling: p_i = softmax(logit_i / T)
+        T > 1 → softer (less confident), T < 1 → sharper (more confident).
+        Learned on OOF predictions (not in-sample) to avoid overfitting.
+        """
+        # Only use rows that have OOF predictions (non-zero)
+        used = oof.sum(axis=1) > 0
+        if used.sum() < 100:
+            return  # not enough data
+
+        oof_used = oof[used]
+        y_used = y.values[used]
+
+        # Get meta-learner probabilities on OOF
+        probas = self.meta_learner.predict_proba(oof_used)
+
+        # Vectorized temperature optimization
+        logits = np.log(np.maximum(probas, 1e-10))
+        y_onehot = np.zeros_like(probas)
+        y_onehot[np.arange(len(y_used)), y_used.astype(int)] = 1.0
+
+        best_T = 1.0
+        best_nll = float("inf")
+        for T in np.arange(0.5, 2.01, 0.05):
+            scaled = np.exp(logits / T)
+            scaled = scaled / scaled.sum(axis=1, keepdims=True)
+            nll = -np.mean(np.sum(y_onehot * np.log(np.maximum(scaled, 1e-10)), axis=1))
+            if nll < best_nll:
+                best_nll = nll
+                best_T = T
+
+        self.temperature = best_T
+        print(f"    [calibration] temperature T={best_T:.2f} (NLL={best_nll:.4f})")
+
+    def _fit_isotonic_from_oof(self, oof: np.ndarray, y: pd.Series) -> None:
+        """Fit isotonic calibrator on OOF predictions from base models.
+
+        Uses the raw OOF outputs (before meta-learner) — per-class isotonic
+        regression to correct systematic over/under-confidence.
+        """
+        from calibration import OofCalibrator
+
+        used = oof.sum(axis=1) > 0
+        if used.sum() < 200:
+            print("    [calibration] Isotonic skipped: too few OOF samples")
+            return
+
+        # Use average of base model OOF predictions (columns 0-8: xgb, lgbm, cat)
+        base_oof = (oof[used, 0:3] + oof[used, 3:6] + oof[used, 6:9]) / 3.0
+
+        self.calibrator = OofCalibrator()
+        self.calibrator.fit(base_oof, y.values[used])
+
     def predict_proba(self, X: pd.DataFrame,
                       league_slug: Optional[str] = None,
                       home_name: Optional[str] = None,
-                      away_name: Optional[str] = None) -> np.ndarray:
+                      away_name: Optional[str] = None,
+                      apply_calibration: bool = True) -> np.ndarray:
         pair = self.leagues.get(league_slug) if league_slug else None
         if not pair:
             pair = self.global_model
@@ -325,16 +509,29 @@ class Ensemble:
             meta_features[:, 9:12] = avg
 
         if self.meta_learner is not None:
-            return self.meta_learner.predict_proba(meta_features)
+            raw = self.meta_learner.predict_proba(meta_features)
+        else:
+            # Fallback: simple average
+            avg = (p_xgb + p_lgb + p_cat) / 3.0
+            if league_slug and home_name and away_name and league_slug in self.dc:
+                dc = self.dc[league_slug]
+                p_h, p_d, p_a = dc.predict_proba(home_name, away_name)
+                dc_arr = np.array([p_a, p_d, p_h])
+                raw = (1.0 - DC_BLEND_WEIGHT) * avg + DC_BLEND_WEIGHT * dc_arr
+            else:
+                raw = avg
 
-        # Fallback: simple average
-        avg = (p_xgb + p_lgb + p_cat) / 3.0
-        if league_slug and home_name and away_name and league_slug in self.dc:
-            dc = self.dc[league_slug]
-            p_h, p_d, p_a = dc.predict_proba(home_name, away_name)
-            dc_arr = np.array([p_a, p_d, p_h])
-            return (1.0 - DC_BLEND_WEIGHT) * avg + DC_BLEND_WEIGHT * dc_arr
-        return avg
+        # Apply temperature scaling for calibration
+        if apply_calibration and self.temperature != 1.0 and self.temperature > 0:
+            logits = np.log(np.maximum(raw, 1e-10))
+            scaled = np.exp(logits / self.temperature)
+            raw = scaled / scaled.sum(axis=1, keepdims=True)
+
+        # Apply isotonic calibration (per-class, then renormalize)
+        if apply_calibration and getattr(self, 'calibrator', None) is not None and self.calibrator.is_fitted:
+            raw = self.calibrator.transform(raw)
+
+        return raw
 
     def predict(self, X: pd.DataFrame, league_slug: Optional[str] = None,
                 home_name: Optional[str] = None,

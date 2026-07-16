@@ -4,7 +4,7 @@ tune.py — Optuna hyperparameter tuning for XGB + LGBM + CatBoost.
 Uses log_loss as the optimization metric (proper for probabilistic forecasting).
 Uses walk-forward expanding-window CV (no data leakage).
 
-Run: python tune.py [--trials 50]
+Run: python tune.py [--trials 50] [--years 5]
 """
 from __future__ import annotations
 
@@ -31,33 +31,44 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 _CACHED = None
 N_FOLDS = 5
+_YEARS = 5  # default: last 5 seasons
 
 
-def _get_dataset():
+def _get_dataset(years: int = 5):
     global _CACHED
     if _CACHED is None:
-        print("  Building dataset...", flush=True)
-        _CACHED = build_dataset()
-        print("  Done.", flush=True)
+        print(f"  Building dataset (last {years} years)...", flush=True)
+        X, y, dates, leagues, meta = build_dataset()
+        # Filter to recent N years
+        cutoff = (dt.date.today() - dt.timedelta(days=years * 365)).isoformat()
+        mask = dates >= cutoff
+        X, y, dates, leagues = (X[mask].reset_index(drop=True),
+                                y[mask].reset_index(drop=True),
+                                dates[mask].reset_index(drop=True),
+                                leagues[mask].reset_index(drop=True))
+        meta = meta[mask].reset_index(drop=True)
+        print(f"  Done. Filtered to {len(X)} rows (last {years} years)", flush=True)
+        _CACHED = X, y, dates, leagues, meta
     return _CACHED
 
 
-def _time_decay_weights(dates: pd.Series, half_life: int = 365) -> np.ndarray:
-    ref = dt.date.today()
+def _time_decay_weights(dates: pd.Series, half_life: int = 365,
+                         reference: str = None) -> np.ndarray:
+    ref = dt.date.fromisoformat(reference) if reference else dt.date.today()
     out = np.empty(len(dates), dtype=float)
     decay = math.log(2) / half_life
     for i, d in enumerate(dates):
         try:
             md = dt.date.fromisoformat(str(d)[:10])
             days = max(0, (ref - md).days)
-            out[i] = math.exp(-decay * days)
+            out[i] = max(0.05, math.exp(-decay * days))
         except Exception:
             out[i] = 1.0
     return out
 
 
 def objective(trial: optuna.Trial) -> float:
-    X, y, dates, leagues, meta = _get_dataset()
+    X, y, dates, leagues, meta = _get_dataset(_YEARS)
     order = dates.argsort().values
     X, y, dates, leagues = (X.iloc[order].reset_index(drop=True),
                             y.iloc[order].reset_index(drop=True),
@@ -89,7 +100,7 @@ def objective(trial: optuna.Trial) -> float:
 
     # CatBoost params
     cat_params = {
-        "iterations": trial.suggest_int("cat_iterations", 200, 800),
+        "iterations": trial.suggest_int("cat_iterations", 300, 1500),
         "learning_rate": trial.suggest_float("cat_lr", 0.01, 0.2, log=True),
         "depth": trial.suggest_int("cat_depth", 3, 8),
         "l2_leaf_reg": trial.suggest_float("cat_l2", 1.0, 5.0, log=True),
@@ -111,7 +122,7 @@ def objective(trial: optuna.Trial) -> float:
         y_tr, y_val = y.iloc[:train_end], y.iloc[test_start:test_end]
         dt_tr = dates.iloc[:train_end]
 
-        decay_w = _time_decay_weights(dt_tr)
+        decay_w = _time_decay_weights(dt_tr, reference=str(dt_tr.iloc[-1])[:10])
 
         xgb = XGBClassifier(
             objective="multi:softprob", num_class=3,
@@ -146,11 +157,14 @@ def objective(trial: optuna.Trial) -> float:
 
 
 def main():
+    global _YEARS
     parser = argparse.ArgumentParser()
     parser.add_argument("--trials", type=int, default=50)
+    parser.add_argument("--years", type=int, default=5, help="Use last N years of data (default: 5)")
     args = parser.parse_args()
+    _YEARS = args.years
 
-    print(f"=== Optuna Tuning ({args.trials} trials, log_loss objective) ===")
+    print(f"=== Optuna Tuning ({args.trials} trials, last {args.years} years, log_loss objective) ===")
     study = optuna.create_study(direction="maximize")
     study.optimize(objective, n_trials=args.trials, show_progress_bar=True)
 

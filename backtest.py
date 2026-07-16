@@ -104,14 +104,22 @@ def run_walk_forward_backtest(
         ens = Ensemble()
         ens.fit(X_tr, y_tr, lg_tr, dt_tr, mt_tr)
 
-        # Predict on test set
+        # Predict on test set (calibrated and uncalibrated)
         probas = np.zeros((n_test, 3))
+        probas_raw = np.zeros((n_test, 3))
         test_indices = np.where(test_mask)[0]
         for j in range(n_test):
             probas[j] = ens.predict_proba(
                 X_te.iloc[[j]], league_slug=lg_te.iloc[j],
                 home_name=mt_te.iloc[j]["home_name"],
                 away_name=mt_te.iloc[j]["away_name"],
+                apply_calibration=True,
+            )[0]
+            probas_raw[j] = ens.predict_proba(
+                X_te.iloc[[j]], league_slug=lg_te.iloc[j],
+                home_name=mt_te.iloc[j]["home_name"],
+                away_name=mt_te.iloc[j]["away_name"],
+                apply_calibration=False,
             )[0]
 
         preds = np.argmax(probas, axis=1)
@@ -133,6 +141,22 @@ def run_walk_forward_backtest(
         avg_ll = np.mean(ll_per)
         avg_brier = np.mean(brier_per)
 
+        # Uncalibrated metrics
+        preds_raw = np.argmax(probas_raw, axis=1)
+        correct_raw = (preds_raw == y_te.values).sum()
+        ll_per_raw = [-math.log(max(proba[int(actual)], eps)) for proba, actual in zip(probas_raw, y_te.values)]
+        brier_per_raw = [sum((proba[k] - (1.0 if k == int(actual) else 0.0)) ** 2 for k in range(3))
+                         for proba, actual in zip(probas_raw, y_te.values)]
+
+        acc_raw = correct_raw / n_test * 100
+        avg_ll_raw = np.mean(ll_per_raw)
+        avg_brier_raw = np.mean(brier_per_raw)
+
+        # ECE for both
+        from calibration import _compute_ece
+        ece_cal = _compute_ece(probas, y_te.values)
+        ece_raw = _compute_ece(probas_raw, y_te.values)
+
         fold_result = {
             "fold": fold + 1,
             "correct": int(correct), "total": n_test,
@@ -140,12 +164,19 @@ def run_walk_forward_backtest(
             "log_loss_sum": float(np.sum(ll_per)),
             "avg_log_loss": round(float(avg_ll), 4),
             "brier_score": round(float(avg_brier), 4),
+            "ece": round(float(ece_cal), 4),
             "picks": picks, "proba_data": proba_data,
             "train_rows": n_train, "test_rows": n_test,
+            # Uncalibrated (raw) metrics for comparison
+            "raw_accuracy": round(acc_raw, 1),
+            "raw_avg_log_loss": round(float(avg_ll_raw), 4),
+            "raw_brier_score": round(float(avg_brier_raw), 4),
+            "raw_ece": round(float(ece_raw), 4),
         }
         all_fold_results.append(fold_result)
 
-        _emit(f"  => Acc={acc:.1f}%  LL={avg_ll:.4f}  Brier={avg_brier:.4f}")
+        _emit(f"  => Cal: Acc={acc:.1f}% LL={avg_ll:.4f} Brier={avg_brier:.4f} ECE={ece_cal:.4f}")
+        _emit(f"     Raw: Acc={acc_raw:.1f}% LL={avg_ll_raw:.4f} Brier={avg_brier_raw:.4f} ECE={ece_raw:.4f}")
 
     if not all_fold_results:
         return {"error": "All folds skipped"}
@@ -154,6 +185,13 @@ def run_walk_forward_backtest(
     total_n = sum(r["total"] for r in all_fold_results)
     avg_ll = sum(r["log_loss_sum"] for r in all_fold_results) / max(total_n, 1)
     avg_brier = np.mean([r["brier_score"] for r in all_fold_results])
+    avg_ece = np.mean([r["ece"] for r in all_fold_results])
+
+    # Raw (uncalibrated) overall
+    total_correct_raw = sum(r["raw_accuracy"] * r["total"] / 100 for r in all_fold_results)
+    avg_ll_raw = sum(r["raw_avg_log_loss"] * r["total"] for r in all_fold_results) / max(total_n, 1)
+    avg_brier_raw = np.mean([r["raw_brier_score"] for r in all_fold_results])
+    avg_ece_raw = np.mean([r["raw_ece"] for r in all_fold_results])
 
     all_picks = []
     all_proba = []
@@ -166,8 +204,14 @@ def run_walk_forward_backtest(
         "correct": total_correct, "total": total_n,
         "avg_log_loss": round(avg_ll, 4),
         "brier_score": round(float(avg_brier), 4),
+        "ece": round(float(avg_ece), 4),
         "n_folds": len(all_fold_results),
         "elapsed_seconds": round(time.time() - start_time, 1),
+        # Uncalibrated baseline
+        "raw_accuracy": round(total_correct_raw / total_n * 100, 1) if total_n else 0,
+        "raw_avg_log_loss": round(avg_ll_raw, 4),
+        "raw_brier_score": round(float(avg_brier_raw), 4),
+        "raw_ece": round(float(avg_ece_raw), 4),
     }
 
     if all_picks:

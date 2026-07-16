@@ -37,6 +37,9 @@ MIN_PRIOR_FOR_TRAINING = 30
 MIN_LEAGUE_TRAIN_ROWS = 3000
 TIME_DECAY_HALF_LIFE_DAYS = 365
 CV_FOLDS = 5
+N_OOF_FOLDS = 3
+USE_CLASS_WEIGHTS = True
+PER_LEAGUE_PROVES_ITSELF = True
 
 # ── Scheduler ────────────────────────────────────────────────────────────────
 UNDERSTAT_REFRESH_HOURS = 6
@@ -66,10 +69,18 @@ SSTATS_API_KEY = _load_api_key("sstats_key.txt", "SSTATS_API_KEY")
 
 # ── AI / LLM ────────────────────────────────────────────────────────────────
 POLZA_BASE_URL = "https://polza.ai/api/v1"
-DEFAULT_AI_MODEL = "deepseek/deepseek-v3.2"
-AI_MAX_TOKENS = 1500
+DEFAULT_AI_MODEL = "deepseek/deepseek-v4-flash"
+
+AI_MODELS = [
+    {"id": "google/gemini-3.5-flash", "name": "Gemini 3.5 Flash", "tag": "Быстрая"},
+    {"id": "deepseek/deepseek-v4-flash", "name": "DeepSeek V4 Flash", "tag": "Быстрая"},
+    {"id": "x-ai/grok-4.3", "name": "Grok 4.3", "tag": "Быстрая"},
+    {"id": "deepseek/deepseek-v4-pro", "name": "DeepSeek V4 Pro", "tag": "Мощная"},
+    {"id": "anthropic/claude-sonnet-5", "name": "Claude Sonnet 5", "tag": "Качественная"},
+]
+AI_MAX_TOKENS = 2000
 AI_TEMPERATURE = 0.7
-AI_TIMEOUT = 45
+AI_TIMEOUT = 60
 
 # ── Feature Flags ────────────────────────────────────────────────────────────
 ENABLE_ESPN_REFRESH = True
@@ -79,10 +90,16 @@ ENABLE_WEATHER = True
 ENABLE_INJURIES = True
 ENABLE_ODDS = True
 ENABLE_SSTATS = True
+ENABLE_ESPN_AI = False  # ESPN in AI analysis pipeline (set False to skip)
 
-# ── Supported Sports (foundation for future expansion) ──────────────────────
-SUPPORTED_SPORTS = ["football"]
+# ── Supported Sports ────────────────────────────────────────────────────────
+SUPPORTED_SPORTS = ["football", "tennis"]
 DEFAULT_SPORT = "football"
+
+# ── Tennis ───────────────────────────────────────────────────────────────────
+TENNIS_DB_PATH = DATA_DIR / "tennis.db"
+TENNIS_API_HOST = "tennisapi1.p.rapidapi.com"
+TENNIS_API_KEY = _load_api_key("tennis_key.txt", "TENNIS_API_KEY")
 
 # ── Understat Leagues (verified: only these 6 exist on Understat) ────────────
 UNDERSTAT_LEAGUES = {

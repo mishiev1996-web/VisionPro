@@ -4,9 +4,11 @@ telegram_bot.py — Telegram bot with Mini App for Football AI Predictor.
 Setup:
   1. Create bot via @BotFather, get token
   2. Put token in Апи/telegram_token.txt (or set TELEGRAM_BOT_TOKEN env var)
-  3. Run: python telegram_bot.py
+  3. Set WEBAPP_URL env var to your HTTPS tunnel URL (e.g. https://xxxx.ngrok.io/mini-app)
+  4. Run: python telegram_bot.py
 
-Mini App opens via /start or the "Прогноз" button.
+Mini App opens via menu button or /app command.
+Text predictions also work: "Team1 vs Team2"
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -22,8 +25,9 @@ from telegram import (
     BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    MenuButtonCommands,
+    MenuButtonWebApp,
     Update,
+    WebAppInfo,
 )
 from telegram.ext import (
     Application,
@@ -40,8 +44,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import db
 import config
-from train import build_features, FEATURE_NAMES
-from ai_analyzer import search_and_predict, _resolve_team_name
+from ai_analyzer import search_and_predict, _resolve_team_name, analyze_match, _chat, SYSTEM_PROMPT
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -61,7 +64,7 @@ def _load_token() -> str:
     return token
 
 
-WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://localhost:8000/mini-app")
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://localhost:8000/mini-app")
 
 
 # ── Handlers ─────────────────────────────────────────────────────────────────
@@ -70,33 +73,38 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send welcome message."""
     user = update.effective_user
     text = (
-        f"Football AI Predictor\n\n"
-        f"Привет, {user.first_name}!\n\n"
-        f"Я предсказываю результаты футбольных матчей с помощью ML.\n"
-        f"Мои данные: xG, Elo, форма команд, котировки букмекеров.\n\n"
-        f"Напиши названия двух команд, и я предскажу результат.\n\n"
-        f"Пример: Ливерпуль vs Челси"
+        f"VisionPro — К вашим услугам, {user.first_name}!\n\n"
+        f"Прогнозы футбольных матчей на основе ML (xG, Elo, форма команд, котировки).\n\n"
+        f"Напиши название двух команд для прогноза:\n"
+        f"  Ливерпуль vs Челси\n"
+        f"  Реал Мадрид - Барселона"
     )
 
-    buttons = [[InlineKeyboardButton("Пример: Ливерпуль vs Ман Сити", callback_data="example")]]
+    await update.message.reply_text(text)
 
+
+async def cmd_app(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show info about the web app."""
     await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(buttons),
+        f"Веб-приложение доступно по адресу:\n{WEBAPP_URL}\n\n"
+        f"Откройте в браузере для полного функционала."
     )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Как пользоваться:\n\n"
-        "1. Напиши: Команда1 vs Команда2\n"
-        "   Пример: Ливерпуль vs Челси\n\n"
-        "2. Или: Команда1 - Команда2\n"
-        "   Пример: Реал Мадрид - Барселона\n\n"
+        "Приложение:\n"
+        "/app — открыть Mini App\n\n"
+        "Текстовые прогнозы:\n"
+        "  Ливерпуль vs Челси\n"
+        "  Реал Мадрид - Барселона\n\n"
         "Команды:\n"
         "/start — начать\n"
+        "/app — открыть приложение\n"
         "/help — помощь\n"
-        "/trending — популярные матчи сегодня"
+        "/trending — ближайшие матчи\n"
+        "/prematch — матчи на сегодня"
     )
 
 
@@ -121,6 +129,99 @@ async def cmd_trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(f"Ошибка: {e}")
 
 
+async def cmd_prematch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show today's prematch games from sstats.net."""
+    try:
+        from scrapers import sstats
+        import datetime as _dt
+        today = _dt.date.today().isoformat()
+        games = sstats.fetch_games_by_date(today)
+        if not games:
+            await update.message.reply_text("Матчей на сегодня не найдено.")
+            return
+
+        lines = [f"Матчи на сегодня ({len(games)}):\n"]
+        for g in games[:15]:
+            home = (g.get("homeTeam") or {}).get("name", "?")
+            away = (g.get("awayTeam") or {}).get("name", "?")
+            league = (g.get("season") or {}).get("league", {}).get("name", "")
+            lines.append(f"  {home} vs {away}")
+            if league:
+                lines.append(f"    {league}")
+
+        lines.append("\nНапиши название двух команд для прогноза!")
+        await update.message.reply_text("\n".join(lines))
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка: {e}")
+
+
+def _quick_predict(home_name: str, away_name: str) -> Optional[str]:
+    """Find match on sstats, call local API for full analysis."""
+    from scrapers import sstats
+    import requests as _req
+
+    home_en = _resolve_team_name(home_name)
+    away_en = _resolve_team_name(away_name)
+
+    # Find game_id on sstats (today ±2 days)
+    import datetime as _dt
+    today = _dt.date.today()
+    game_id = None
+    for delta in range(-2, 3):
+        d = (today + _dt.timedelta(days=delta)).isoformat()
+        try:
+            games = sstats.fetch_games_by_date(d)
+            for g in games:
+                h = (g.get("homeTeam") or {}).get("name", "").lower()
+                a = (g.get("awayTeam") or {}).get("name", "").lower()
+                if (home_en.lower() in h or h in home_en.lower()) and \
+                   (away_en.lower() in a or a in away_en.lower()):
+                    game_id = int(g["id"])
+                    break
+        except Exception:
+            pass
+        if game_id:
+            break
+
+    if not game_id:
+        return None
+
+    # Call local API — same endpoint as web version
+    try:
+        resp = _req.get(f"http://127.0.0.1:8000/api/prematch/{game_id}", timeout=120)
+        data = resp.json()
+    except Exception:
+        return None
+
+    analysis = data.get("ai_analysis", "")
+    if not analysis:
+        return None
+
+    # Extract main bet
+    prob_match = re.search(r'bet=([^:]+):confidence=([^\s]+)', analysis)
+    main_bet = prob_match.group(1) if prob_match else ""
+    confidence = prob_match.group(2) if prob_match else ""
+
+    main_bet_ru = {"HOME": "Победа хозяев", "AWAY": "Победа гостей",
+                   "DRAW": "Ничья"}.get(main_bet.upper(), main_bet)
+    confidence_ru = {"high": "Высокая", "medium": "Средняя",
+                     "low": "Низкая"}.get(confidence.lower(), confidence)
+
+    clean = re.sub(r'PROB:home=[\d.]+:draw=[\d.]+:away=[\d.]+:bet=[^:]+:confidence=[^\s]+', '', analysis).strip()
+
+    lines = [clean] if clean else []
+    if main_bet_ru:
+        lines.append("")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+        lines.append("ГЛАВНЫЙ ПРОГНОЗ VISIONPRO")
+        lines.append(f"  {main_bet_ru}")
+        if confidence_ru:
+            lines.append(f"  Уверенность: {confidence_ru}")
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    return "\n".join(lines) or "Прогноз не удалось сформировать."
+
+
 async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parse team names from message and generate prediction."""
     text = update.message.text.strip()
@@ -137,7 +238,8 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text(
             "Не могу распознать команды. Попробуй:\n"
             "  Ливерпуль vs Челси\n"
-            "  Реал Мадрид - Барселона"
+            "  Реал Мадрид - Барселона\n\n"
+            "Или откройте приложение: /app"
         )
         return
 
@@ -147,147 +249,60 @@ async def handle_prediction(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     try:
         result = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: search_and_predict(
-                home_name, away_name,
-                progress_cb=lambda e: None,
-            ),
+            lambda: _quick_predict(home_name, away_name),
         )
     except Exception as e:
         await update.message.reply_text(f"Ошибка при анализе: {e}")
         return
 
     if not result:
-        await update.message.reply_text("Не удалось найти команды в базе данных.")
+        await update.message.reply_text("Не удалось проанализировать матч.")
         return
 
-    # Build response text
-    lines = []
-
-    # Teams
-    h_name = result.get("home", {}).get("name", home_name)
-    a_name = result.get("away", {}).get("name", away_name)
-    lines.append(f"{h_name} vs {a_name}")
-    lines.append("")
-
-    # Prediction from model
-    pred = result.get("prediction")
-    if pred and "probabilities" in pred:
-        prob = pred["probabilities"]
-        hw = prob.get("home_win", 0)
-        dr = prob.get("draw", 0)
-        aw = prob.get("away_win", 0)
-
-        lines.append(f"Прогноз модели:")
-        lines.append(f"  Победа хозяев: {hw:.1f}%")
-        lines.append(f"  Ничья: {dr:.1f}%")
-        lines.append(f"  Победа гостей: {aw:.1f}%")
-        lines.append("")
-
-        # Visual bar
-        lines.append(_make_bar(hw, dr, aw))
-
-        # Main prediction
-        if hw > dr and hw > aw:
-            lines.append(f"\nПрогноз: Победа {h_name} ({hw:.1f}%)")
-        elif aw > dr:
-            lines.append(f"\nПрогноз: Победа {a_name} ({aw:.1f}%)")
-        else:
-            lines.append(f"\nПрогноз: Ничья ({dr:.1f}%)")
-    else:
-        lines.append("Модель не смогла рассчитать прогноз.")
-
-    # AI analysis (truncated)
-    analysis = result.get("analysis")
-    if analysis:
-        lines.append("")
-        lines.append("--- Аналитика ---")
-        # Truncate to fit Telegram message limit (4096 chars)
-        max_analysis = 2000
-        if len(analysis) > max_analysis:
-            analysis = analysis[:max_analysis] + "..."
-        lines.append(analysis)
-
-    response = "\n".join(lines)
-
-    # Telegram has a 4096 char limit
-    if len(response) > 4096:
-        response = response[:4090] + "..."
-
-    await update.message.reply_text(response)
-
-
-def _make_bar(hw: float, dr: float, aw: float) -> str:
-    """Create a text-based probability bar."""
-    total = hw + dr + aw
-    if total <= 0:
-        return ""
-    hw_r, dr_r, aw_r = hw / total * 100, dr / total * 100, aw / total * 100
-    bar_len = 20
-    h_len = max(1, round(hw_r / 100 * bar_len))
-    d_len = max(1, round(dr_r / 100 * bar_len))
-    a_len = bar_len - h_len - d_len
-    if a_len < 1:
-        a_len = 1
-        d_len = bar_len - h_len - a_len
-    return (
-        f"{'█' * h_len}{'░' * d_len}{'▓' * a_len}\n"
-        f"{hw_r:.0f}%   {dr_r:.0f}%   {aw_r:.0f}%"
-    )
+    await update.message.reply_text(result)
 
 
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle data sent from Mini App."""
+    """Handle data sent from Mini App via sendData()."""
     try:
         data = json.loads(update.effective_message.web_app_data.data)
         home_name = data.get("home", "")
         away_name = data.get("away", "")
+        probabilities = data.get("probabilities", {})
 
         if not home_name or not away_name:
-            await update.message.reply_text("Некорректные данные.")
+            await update.message.reply_text("Некорректные данные из приложения.")
             return
 
-        await update.message.reply_text(f"Анализирую: {home_name} vs {away_name}...")
+        # Build quick summary from data sent by Mini App
+        hw = probabilities.get("home_win", 0)
+        dr = probabilities.get("draw", 0)
+        aw = probabilities.get("away_win", 0)
 
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: search_and_predict(home_name, away_name, progress_cb=lambda e: None),
+        text = (
+            f"{home_name} vs {away_name}\n"
+            f"Победа хозяев: {hw:.1f}%\n"
+            f"Ничья: {dr:.1f}%\n"
+            f"Победа гостей: {aw:.1f}%"
         )
 
-        if result and result.get("prediction"):
-            pred = result["prediction"]
-            prob = pred.get("probabilities", {})
-            h_name = result.get("home", {}).get("name", home_name)
-            a_name = result.get("away", {}).get("name", away_name)
+        if data.get("analysis"):
+            text += f"\n\n{data['analysis'][:500]}"
 
-            text = (
-                f"{h_name} vs {a_name}\n"
-                f"Хозяева: {prob.get('home_win', 0):.1f}%\n"
-                f"Ничья: {prob.get('draw', 0):.1f}%\n"
-                f"Гости: {prob.get('away_win', 0):.1f}%"
-            )
-            await update.message.reply_text(text)
-        else:
-            await update.message.reply_text("Не удалось рассчитать прогноз.")
+        await update.message.reply_text(text)
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка обработки данных: {e}")
 
 
 async def post_init(application: Application) -> None:
-    """Set bot commands menu."""
+    """Set bot commands."""
     await application.bot.set_my_commands([
         BotCommand("start", "Начать"),
         BotCommand("help", "Помощь"),
         BotCommand("trending", "Ближайшие матчи"),
+        BotCommand("prematch", "Матчи на сегодня"),
+        BotCommand("app", "Открыть приложение"),
     ])
-
-    # Set menu button to commands mode (web_app requires HTTPS)
-    try:
-        await application.bot.set_chat_menu_button(
-            chat_id=None,
-            menu_button=MenuButtonCommands(),
-        )
-    except Exception as e:
-        logger.warning(f"Failed to set menu button: {e}")
 
 
 def main() -> None:
@@ -297,6 +312,11 @@ def main() -> None:
         print("Put token in Апи/telegram_token.txt or set TELEGRAM_BOT_TOKEN env var.")
         print("Get token from @BotFather on Telegram.")
         return
+
+    if not WEBAPP_URL.startswith("https://"):
+        print(f"WARNING: WEBAPP_URL={WEBAPP_URL}")
+        print("Telegram Mini App requires HTTPS. Set WEBAPP_URL to your tunnel URL.")
+        print("Example: set WEBAPP_URL=https://your-id.ngrok.io/mini-app")
 
     # Initialize DB
     db.init_db()
@@ -308,21 +328,25 @@ def main() -> None:
         .build()
     )
 
-    # Error handler
     async def error_handler(update, context):
         logger.error(f"Error: {context.error}")
 
     app.add_error_handler(error_handler)
 
-    # Handlers
+    # Command handlers
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("app", cmd_app))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("trending", cmd_trending))
-    app.add_handler(CallbackQueryHandler(handle_prediction, pattern="^example$"))
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND, handle_prediction))
+    app.add_handler(CommandHandler("prematch", cmd_prematch))
 
-    print("Telegram bot started. Press Ctrl+C to stop.")
+    # Text prediction handler (fallback)
+    app.add_handler(CallbackQueryHandler(handle_prediction, pattern="^example$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_prediction))
+
+    print(f"Telegram bot started.")
+    print(f"WEBAPP_URL: {WEBAPP_URL}")
+    print("Press Ctrl+C to stop.")
     app.run_polling(drop_pending_updates=True)
 
 

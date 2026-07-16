@@ -801,6 +801,14 @@ def collect_sstats(progress_cb: Optional[ProgressCB] = None,
                             if event_list:
                                 n = db.save_sstats_events(conn, game_id, event_list, now)
                                 saved_events += n
+
+                            # Injuries
+                            try:
+                                injuries = sstats.fetch_injuries(game_id)
+                                if injuries:
+                                    db.save_sstats_injuries(conn, game_id, injuries, now)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
 
@@ -850,7 +858,7 @@ def collect_sstats_bulk(progress_cb: Optional[ProgressCB] = None,
     from scrapers import sstats
 
     current = _current_season_year()
-    seasons = seasons or [current]
+    seasons = seasons or [current - 2, current - 1, current]
     log_id = None
     with db.connect() as conn:
         log_id = db.log_start(conn, "sstats_bulk", "collect")
@@ -999,6 +1007,14 @@ def collect_sstats_bulk(progress_cb: Optional[ProgressCB] = None,
                             if event_list:
                                 n = db.save_sstats_events(conn, game_id, event_list, now)
                                 saved_events += n
+
+                            # Injuries
+                            try:
+                                injuries = sstats.fetch_injuries(game_id)
+                                if injuries:
+                                    db.save_sstats_injuries(conn, game_id, injuries, now)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
 

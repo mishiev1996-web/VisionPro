@@ -10,6 +10,7 @@ Jina Reader (https://r.jina.ai/) converts any URL to clean Markdown:
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
 import time
 from typing import Optional, Dict, Any, List
@@ -266,41 +267,60 @@ def gather_match_info(home: str, away: str, progress_cb=None) -> Dict[str, Any]:
 
 # ── ESPN match scraper ──────────────────────────────────────────────────────
 
-def find_espn_match_id(home: str, away: str) -> Optional[str]:
-    """Find ESPN gameId for a match by searching ESPN scoreboard.
+_ESPN_LEAGUES = [
+    "fifa.world", "uefa.nations", "fifa.worldq.uefa",
+    "uefa.champions", "uefa.europa",
+    "eng.1", "esp.1", "ger.1", "ita.1", "fra.1",
+    "ned.1", "por.1", "bel.1", "tur.1", "sui.1",
+    "usa.1", "bra.1", "arg.1", "rus.1",
+    "eng.2", "esp.2", "ger.2", "ita.2", "fra.2",
+    "sco.1", "gre.1", "aut.1", "den.1", "nor.1", "swe.1",
+    "ukr.1", "pol.1", "cze.1", "croat.1", "srb.1",
+    "rom.1", "bul.1", "hun.1", "fin.1", "ice.1", "irl.1",
+    "mex.1", "chi.1", "col.1", "ksa.1", "uae.1", "qat.1",
+    "jpn.1", "chn.1", "kor.1", "aus.1",
+    "mar.1", "tun.1", "egy.1",
+]
 
-    Returns gameId string or None.
+
+def find_espn_match_id(home: str, away: str) -> Optional[tuple]:
+    """Find ESPN gameId for a match by searching ESPN scoreboard across all leagues.
+
+    Returns (gameId, league_slug) tuple or None.
     """
     import datetime as _dt
     today = _dt.date.today()
+    home_l = home.lower()
+    away_l = away.lower()
 
-    # Search today ±3 days
+    # Search today ±3 days across all leagues
     for delta in range(-3, 4):
         d = today + _dt.timedelta(days=delta)
         date_str = d.strftime("%Y%m%d")
-        url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates={date_str}"
-        try:
-            resp = requests.get(url, timeout=8, headers={"User-Agent": "FootballAI/1.0"})
-            if resp.status_code != 200:
+        for league in _ESPN_LEAGUES:
+            url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard?dates={date_str}"
+            try:
+                resp = requests.get(url, timeout=8, headers={"User-Agent": "FootballAI/1.0"})
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                for event in data.get("events", []):
+                    comps = event.get("competitions", [])
+                    if not comps:
+                        continue
+                    comp = comps[0]
+                    sides = comp.get("competitors", [])
+                    if len(sides) < 2:
+                        continue
+                    h = sides[0] if sides[0].get("homeAway") == "home" else sides[1]
+                    a = sides[1] if sides[0].get("homeAway") == "home" else sides[0]
+                    h_name = (h.get("team") or {}).get("displayName", "").lower()
+                    a_name = (a.get("team") or {}).get("displayName", "").lower()
+                    if (home_l in h_name or h_name in home_l) and \
+                       (away_l in a_name or a_name in away_l):
+                        return (event.get("id"), league)
+            except Exception:
                 continue
-            data = resp.json()
-            for event in data.get("events", []):
-                comps = event.get("competitions", [])
-                if not comps:
-                    continue
-                comp = comps[0]
-                sides = comp.get("competitors", [])
-                if len(sides) < 2:
-                    continue
-                h = sides[0] if sides[0].get("homeAway") == "home" else sides[1]
-                a = sides[1] if sides[0].get("homeAway") == "home" else sides[0]
-                h_name = (h.get("team") or {}).get("displayName", "").lower()
-                a_name = (a.get("team") or {}).get("displayName", "").lower()
-                if (home.lower() in h_name or h_name in home.lower()) and \
-                   (away.lower() in a_name or a_name in away.lower()):
-                    return event.get("id")
-        except Exception:
-            continue
     return None
 
 
@@ -312,15 +332,16 @@ def fetch_espn_match(home_en: str, away_en: str, progress_cb=None) -> Optional[D
     if progress_cb:
         progress_cb({"type": "info", "msg": f"ESPN: ищу {home_en} vs {away_en}…"})
 
-    # 1. Find the match ID via ESPN API
-    game_id = find_espn_match_id(home_en, away_en)
-    if not game_id:
+    # 1. Find the match ID via ESPN API (now returns tuple: game_id, league)
+    result_match = find_espn_match_id(home_en, away_en)
+    if not result_match:
         if progress_cb:
             progress_cb({"type": "info", "msg": "ESPN: матч не найден"})
         return None
+    game_id, espn_league = result_match
 
     # 2. Get match details from ESPN JSON API (faster, more reliable)
-    match_detail = _fetch_espn_match_detail(game_id)
+    match_detail = _fetch_espn_match_detail(game_id, league=espn_league)
 
     # 3. Fetch match page via Jina Reader (for news, headlines)
     url = f"https://www.espn.com/soccer/match/_/gameId/{game_id}"
@@ -367,9 +388,9 @@ def fetch_espn_match(home_en: str, away_en: str, progress_cb=None) -> Optional[D
     return result
 
 
-def _fetch_espn_match_detail(game_id: str) -> Optional[Dict]:
+def _fetch_espn_match_detail(game_id: str, league: str = "fifa.world") -> Optional[Dict]:
     """Fetch match detail from ESPN JSON API."""
-    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event={game_id}"
+    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/summary?event={game_id}"
     try:
         resp = requests.get(url, timeout=10, headers={"User-Agent": "FootballAI/1.0"})
         if resp.status_code == 200:
@@ -497,28 +518,36 @@ def _fetch_espn_team_schedule(team_id: str) -> Optional[str]:
 
 
 _TEAM_ID_CACHE: Dict[str, str] = {}
+_TEAM_ID_CACHE_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "espn_team_cache.json")
+
+# Load persistent cache on module import
+try:
+    import json as _json_mod
+    if os.path.exists(_TEAM_ID_CACHE_FILE):
+        with open(_TEAM_ID_CACHE_FILE, "r") as _f:
+            _TEAM_ID_CACHE = _json_mod.load(_f)
+except Exception:
+    pass
+
+
+def _save_team_cache():
+    """Persist team ID cache to disk."""
+    try:
+        import json as _json_mod
+        os.makedirs(os.path.dirname(_TEAM_ID_CACHE_FILE), exist_ok=True)
+        with open(_TEAM_ID_CACHE_FILE, "w") as _f:
+            _json_mod.dump(_TEAM_ID_CACHE, _f)
+    except Exception:
+        pass
 
 
 def _espn_team_id(name: str) -> str:
-    """Find team ID by searching ESPN API dynamically. Cached."""
+    """Find team ID by searching ESPN API dynamically. Cached (persistent)."""
     q = name.lower().strip()
     if q in _TEAM_ID_CACHE:
         return _TEAM_ID_CACHE[q]
 
-    _LEAGUES = [
-        "fifa.world", "uefa.nations",
-        "eng.1", "esp.1", "ger.1", "ita.1", "fra.1",
-        "ned.1", "por.1", "bel.1", "tur.1", "sui.1",
-        "usa.1", "bra.1", "arg.1", "rus.1",
-        "eng.2", "esp.2", "ger.2", "ita.2", "fra.2",
-        "sco.1", "gre.1", "aut.1", "den.1", "nor.1", "swe.1",
-        "ukr.1", "pol.1", "cze.1", "croat.1", "srb.1",
-        "rom.1", "bul.1", "hun.1", "fin.1", "ice.1", "irl.1",
-        "mex.1", "chi.1", "col.1", "par.1", "uru.1", "ecu.1",
-        "ksa.1", "uae.1", "qat.1", "jpn.1", "chn.1", "kor.1", "aus.1",
-        "mar.1", "tun.1", "egy.1",
-    ]
-    for league in _LEAGUES:
+    for league in _ESPN_LEAGUES:
         try:
             resp = requests.get(
                 f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/teams",
@@ -537,6 +566,7 @@ def _espn_team_id(name: str) -> str:
                 if q == dn or q == sn or q in dn or dn in q:
                     tid = str(team["id"])
                     _TEAM_ID_CACHE[q] = tid
+                    _save_team_cache()
                     return tid
         except Exception:
             continue
