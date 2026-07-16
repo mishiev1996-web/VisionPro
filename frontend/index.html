@@ -1374,7 +1374,6 @@ function startVoiceInput(){
     _voiceListening=false;
     btn.classList.remove('listening');
     hint.classList.remove('active');
-    if(card)card.style.display='';
     if(e.error==='no-speech')hint.textContent='Речь не распознана, попробуйте ещё раз';
     else if(e.error==='not-allowed')hint.textContent='Разрешите доступ к микрофону';
     else hint.textContent='Ошибка: '+e.error;
@@ -1383,7 +1382,7 @@ function startVoiceInput(){
   _voiceRecognition.onend=()=>{
     _voiceListening=false;
     btn.classList.remove('listening');
-    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Зажми и скажи свободно, например: «Арсенал против Челси»'},2000);
+    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Зажми и скажи свободно, например: «Арсенал против Челси»'},3000);
   };
 
   _voiceRecognition.start();
@@ -1448,15 +1447,10 @@ function parseVoiceInput(text){
     hint.textContent=home+' vs '+away;
     hint.style.color='#d4af37';
 
-    // Show card back and auto-run analysis
-    const card=document.getElementById('ai-input-card');
-    if(card)card.style.display='';
     setTimeout(()=>runAnalysis(),500);
   }else{
     hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';
     hint.style.color='#ff3b30';
-    const card=document.getElementById('ai-input-card');
-    if(card)card.style.display='';
   }
 }
 
