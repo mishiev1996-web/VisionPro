@@ -18,14 +18,11 @@ The API uses TLS fingerprinting; use Botasaurus @request for proper handshake.
 from __future__ import annotations
 
 import os
+import requests as _requests
 from typing import Any, Dict, List, Optional
-
-from botasaurus.request import request, Request
 
 
 SSTATS_BASE = "https://api.sstats.net"
-# Key embedded — user's personal account, project is for personal use only.
-# Override via SSTATS_API_KEY env var if needed.
 SSTATS_KEY = os.environ.get("SSTATS_API_KEY", "")
 if not SSTATS_KEY:
     _key_path = os.path.join(os.path.dirname(__file__), "..", "Апи", "sstats_key.txt")
@@ -33,7 +30,6 @@ if not SSTATS_KEY:
         with open(_key_path, "r") as _f:
             SSTATS_KEY = _f.read().strip()
 
-# Global rate limiter: max 1 request per 2 seconds to avoid 429
 import threading as _threading
 _sstats_lock = _threading.Lock()
 _sstats_last_call = 0.0
@@ -50,18 +46,20 @@ def _rate_limit():
         _sstats_last_call = __import__("time").monotonic()
 
 
-@request(cache=False, output=None, create_error_logs=False, max_retry=2,
-         raise_exception=False, parallel=8)
-def _fetch_batch(req: Request, data: dict) -> Optional[dict]:
-    """Generic batch GET. `data` must contain 'url' (and optionally other meta)."""
+def _fetch_batch(data_list: list) -> list:
+    """Generic batch GET. Each item must contain 'url'."""
     headers = {"apikey": SSTATS_KEY, "User-Agent": "Mozilla/5.0 (Football-AI)"}
-    try:
-        r = req.get(data["url"], headers=headers, timeout=25)
-        if r.status_code != 200:
-            return None
-        return r.json()
-    except Exception:
-        return None
+    results = []
+    for data in data_list:
+        try:
+            r = _requests.get(data["url"], headers=headers, timeout=25)
+            if r.status_code == 200:
+                results.append(r.json())
+            else:
+                results.append(None)
+        except Exception:
+            results.append(None)
+    return results
 
 
 def _fetch_one(path: str) -> Optional[dict]:
