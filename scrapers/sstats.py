@@ -169,6 +169,38 @@ def fetch_teams_in_league(league_id: int) -> List[dict]:
     return (data or {}).get("data") or []
 
 
+def search_team_by_name(team_name: str, limit: int = 5) -> List[dict]:
+    """Search for a team by name using /Games/query.
+    
+    Returns list of matches where the team appears, with team info.
+    """
+    _rate_limit()
+    body = {
+        "Condition": f"HomeTeamName LIKE '%{team_name}%' OR AwayTeamName LIKE '%{team_name}%'",
+        "Fields": ["Id", "Date", "HomeTeamName", "HomeTeamId", "AwayTeamName", "AwayTeamId",
+                   "ScoreHomeFT", "ScoreAwayFT", "Status", "LeagueId", "LeagueName"],
+        "Order": "Date DESC",
+        "Limit": limit
+    }
+    try:
+        r = _requests.post(f"{SSTATS_BASE}/Games/query", 
+                          headers={**HEADERS, "Content-Type": "application/json"},
+                          json=body, timeout=20)
+        if r.status_code == 200:
+            return (r.json() or {}).get("data") or []
+    except Exception:
+        pass
+    return []
+
+
+def search_team_matches(team_name: str, limit: int = 10) -> List[dict]:
+    """Search for recent matches involving a team by name.
+    
+    Returns list of match dicts with team IDs and names.
+    """
+    return search_team_by_name(team_name, limit)
+
+
 def fetch_last_games_stats(game_id: int, limit: int = 25,
                            same_league: bool = False,
                            same_season: bool = False,

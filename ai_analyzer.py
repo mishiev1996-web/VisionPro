@@ -1405,117 +1405,170 @@ def _search_sstats_team(team_name: str, progress_cb=None,
                         max_seconds: float = 60.0) -> Optional[dict]:
     """Search sstats.net for a team by name, save their match history to DB.
 
-    Phase 1: Search our 18 configured leagues (fast).
-    Phase 2: If not found, search remaining leagues with a hard time limit.
+    Phase 1: Direct search via /Games/query (fast, 1 request).
+    Phase 2: If not found, search configured leagues (fallback).
     """
     from scrapers import sstats
     import data_collector as _dc
-    import time as _time
 
+    # Phase 1: Direct search via /Games/query (fast!)
+    if progress_cb:
+        progress_cb({"type": "info", "msg": f"  Поиск «{team_name}» через sstats API..."})
+
+    matches = sstats.search_team_by_name(team_name, limit=20)
+    if matches:
+        # Found matches - extract team info
+        team_id = None
+        team_name_db = team_name
+        league_slug = None
+        lg_name = None
+
+        for m in matches:
+            h_name = (m.get("HomeTeamName") or "").lower()
+            a_name = (m.get("AwayTeamName") or "").lower()
+            team_lower = team_name.lower().strip()
+
+            if team_lower in h_name or h_name in team_lower:
+                team_id = m.get("HomeTeamId")
+                team_name_db = m.get("HomeTeamName", team_name)
+            elif team_lower in a_name or a_name in team_lower:
+                team_id = m.get("AwayTeamId")
+                team_name_db = m.get("AwayTeamName", team_name)
+
+            if team_id:
+                lid = m.get("LeagueId")
+                lg_name = m.get("LeagueName", "")
+                for slug, sstats_id in _dc.SSTATS_LEAGUE_IDS.items():
+                    if sstats_id == lid:
+                        league_slug = slug
+                        break
+                if not league_slug:
+                    league_slug = f"sstats_{lid}"
+                break
+
+        if team_id:
+            # Save team and matches to DB
+            league_info = config.LEAGUE_TIERS.get(league_slug, {"tier": 3})
+            with db.connect() as conn:
+                db.upsert_league(conn, league_slug, lg_name or team_name, "", tier=league_info.get("tier", 3))
+                db.upsert_team(conn, team_id, team_name_db, None, league_slug)
+
+            saved = 0
+            with db.connect() as conn:
+                for m in matches:
+                    h_name = m.get("HomeTeamName", "")
+                    a_name = m.get("AwayTeamName", "")
+                    h_tid = m.get("HomeTeamId")
+                    a_tid = m.get("AwayTeamId")
+                    if not h_name or not a_name or not h_tid or not a_tid:
+                        continue
+                    date_str = (m.get("Date") or "")[:10]
+                    if not date_str:
+                        continue
+                    db.upsert_team(conn, h_tid, h_name, None, league_slug)
+                    db.upsert_team(conn, a_tid, a_name, None, league_slug)
+                    match_id = _dc._deterministic_id("match", league_slug, date_str, h_name, a_name)
+                    db.upsert_match(conn, {
+                        "id": match_id, "league_slug": league_slug, "season": 2025,
+                        "date": date_str, "home_id": h_tid, "away_id": a_tid,
+                        "home_goals": m.get("ScoreHomeFT"), "away_goals": m.get("ScoreAwayFT"),
+                        "home_xg": None, "away_xg": None, "is_result": 1,
+                        "forecast_w": None, "forecast_d": None, "forecast_l": None,
+                    })
+                    saved += 1
+
+            if progress_cb:
+                progress_cb({"type": "success",
+                             "msg": f"  sstats: {team_name_db} — {saved} матчей из {lg_name}"})
+            return {"team_id": team_id, "team_name": team_name_db,
+                    "league_slug": league_slug, "matches_found": saved}
+
+    # Phase 2: Fallback - search configured leagues
+    if progress_cb:
+        progress_cb({"type": "info", "msg": "  Не найден напрямую, ищу в основных лигах..."})
+
+    import time as _time
     team_lower = team_name.lower().strip()
     t_start = _time.monotonic()
 
-    def _try_leagues(leagues_list, label):
-        """Search a list of (lid, name) tuples for the team."""
-        for lid, lg_name in leagues_list:
-            if _time.monotonic() - t_start > max_seconds:
-                if progress_cb:
-                    progress_cb({"type": "info",
-                                 "msg": f"  Поиск {label} прерван по таймауту ({max_seconds}с)"})
-                return None
-            try:
-                results = sstats.fetch_query(
-                    condition=f"LeagueId = {lid} AND Year = 2025 AND Status = 8",
-                    fields=["Id", "Date", "HomeTeamName", "AwayTeamName",
-                            "HomeTeamId", "AwayTeamId", "ScoreHomeFT", "ScoreAwayFT"],
-                    order="Date DESC",
-                )
-            except Exception:
-                _time.sleep(0.5)
-                continue
-
-            if not results:
-                _time.sleep(0.1)
-                continue
-
-            for match in results:
-                h = (match.get("HomeTeamName") or "").lower()
-                a = (match.get("AwayTeamName") or "").lower()
-                if team_lower in h or h in team_lower or team_lower in a or a in team_lower:
-                    if team_lower in h or h in team_lower:
-                        team_id = match.get("HomeTeamId")
-                        team_name_db = match.get("HomeTeamName", team_name)
-                    else:
-                        team_id = match.get("AwayTeamId")
-                        team_name_db = match.get("AwayTeamName", team_name)
-
-                    if not team_id:
-                        continue
-
-                    # Determine league slug
-                    league_slug = None
-                    for slug, sstats_id in _dc.SSTATS_LEAGUE_IDS.items():
-                        if sstats_id == lid:
-                            league_slug = slug
-                            break
-                    if not league_slug:
-                        league_slug = f"sstats_{lid}"
-
-                    league_info = config.LEAGUE_TIERS.get(league_slug, {"tier": 3})
-
-                    with db.connect() as conn:
-                        db.upsert_league(conn, league_slug, lg_name, "", tier=league_info.get("tier", 3))
-                        db.upsert_team(conn, team_id, team_name_db, None, league_slug)
-
-                    saved = 0
-                    now = dt.datetime.now().isoformat(timespec="seconds")
-                    with db.connect() as conn:
-                        for m in results:
-                            h_name = m.get("HomeTeamName", "")
-                            a_name = m.get("AwayTeamName", "")
-                            h_tid = m.get("HomeTeamId")
-                            a_tid = m.get("AwayTeamId")
-                            if not h_name or not a_name or not h_tid or not a_tid:
-                                continue
-                            date_str = (m.get("Date") or "")[:10]
-                            if not date_str:
-                                continue
-                            db.upsert_team(conn, h_tid, h_name, None, league_slug)
-                            db.upsert_team(conn, a_tid, a_name, None, league_slug)
-                            match_id = _dc._deterministic_id("match", league_slug, date_str, h_name, a_name)
-                            db.upsert_match(conn, {
-                                "id": match_id, "league_slug": league_slug, "season": 2025,
-                                "date": date_str, "home_id": h_tid, "away_id": a_tid,
-                                "home_goals": m.get("ScoreHomeFT"), "away_goals": m.get("ScoreAwayFT"),
-                                "home_xg": None, "away_xg": None, "is_result": 1,
-                                "forecast_w": None, "forecast_d": None, "forecast_l": None,
-                            })
-                            saved += 1
-
-                    if progress_cb:
-                        progress_cb({"type": "success",
-                                     "msg": f"  sstats ({label}): {team_name_db} — {saved} матчей из {lg_name}"})
-                    return {"team_id": team_id, "team_name": team_name_db,
-                            "league_slug": league_slug, "matches_found": saved}
-            _time.sleep(0.3)
-        return None
-
-    # Phase 1: Our configured leagues (fast)
     configured = [(sstats_id, slug) for slug, sstats_id in _dc.SSTATS_LEAGUE_IDS.items()]
-    result = _try_leagues(configured, "configured")
-    if result:
-        return result
+    for lid, lg_name in configured:
+        if _time.monotonic() - t_start > max_seconds:
+            return None
+        try:
+            results = sstats.fetch_query(
+                condition=f"LeagueId = {lid} AND Year = 2025 AND Status = 8",
+                fields=["Id", "Date", "HomeTeamName", "AwayTeamName",
+                        "HomeTeamId", "AwayTeamId", "ScoreHomeFT", "ScoreAwayFT"],
+                order="Date DESC",
+            )
+        except Exception:
+            _time.sleep(0.5)
+            continue
 
-    # Phase 2: All leagues (slow but comprehensive)
-    if progress_cb:
-        progress_cb({"type": "info", "msg": "  Не найден в основных лигах, ищу во всех 1233..."})
+        if not results:
+            _time.sleep(0.1)
+            continue
 
-    all_leagues = sstats.fetch_leagues()
-    remaining = [(l.get("id"), l.get("name", "?")) for l in all_leagues
-                 if l.get("id") and l.get("id") not in [s for s, _ in configured]]
+        for match in results:
+            h = (match.get("HomeTeamName") or "").lower()
+            a = (match.get("AwayTeamName") or "").lower()
+            if team_lower in h or h in team_lower or team_lower in a or a in team_lower:
+                if team_lower in h or h in team_lower:
+                    team_id = match.get("HomeTeamId")
+                    team_name_db = match.get("HomeTeamName", team_name)
+                else:
+                    team_id = match.get("AwayTeamId")
+                    team_name_db = match.get("AwayTeamName", team_name)
 
-    result = _try_leagues(remaining, "all")
-    return result
+                if not team_id:
+                    continue
+
+                league_slug = None
+                for slug, sstats_id in _dc.SSTATS_LEAGUE_IDS.items():
+                    if sstats_id == lid:
+                        league_slug = slug
+                        break
+                if not league_slug:
+                    league_slug = f"sstats_{lid}"
+
+                league_info = config.LEAGUE_TIERS.get(league_slug, {"tier": 3})
+                with db.connect() as conn:
+                    db.upsert_league(conn, league_slug, lg_name, "", tier=league_info.get("tier", 3))
+                    db.upsert_team(conn, team_id, team_name_db, None, league_slug)
+
+                saved = 0
+                with db.connect() as conn:
+                    for m in results:
+                        h_name = m.get("HomeTeamName", "")
+                        a_name = m.get("AwayTeamName", "")
+                        h_tid = m.get("HomeTeamId")
+                        a_tid = m.get("AwayTeamId")
+                        if not h_name or not a_name or not h_tid or not a_tid:
+                            continue
+                        date_str = (m.get("Date") or "")[:10]
+                        if not date_str:
+                            continue
+                        db.upsert_team(conn, h_tid, h_name, None, league_slug)
+                        db.upsert_team(conn, a_tid, a_name, None, league_slug)
+                        match_id = _dc._deterministic_id("match", league_slug, date_str, h_name, a_name)
+                        db.upsert_match(conn, {
+                            "id": match_id, "league_slug": league_slug, "season": 2025,
+                            "date": date_str, "home_id": h_tid, "away_id": a_tid,
+                            "home_goals": m.get("ScoreHomeFT"), "away_goals": m.get("ScoreAwayFT"),
+                            "home_xg": None, "away_xg": None, "is_result": 1,
+                            "forecast_w": None, "forecast_d": None, "forecast_l": None,
+                        })
+                        saved += 1
+
+                if progress_cb:
+                    progress_cb({"type": "success",
+                                 "msg": f"  sstats ({lg_name}): {team_name_db} — {saved} матчей"})
+                return {"team_id": team_id, "team_name": team_name_db,
+                        "league_slug": league_slug, "matches_found": saved}
+        _time.sleep(0.3)
+
+    return None
 
 
 def search_and_predict(home_name: str, away_name: str,
