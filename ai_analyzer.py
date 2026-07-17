@@ -786,9 +786,15 @@ def _find_team_in_db(name: str) -> Optional[dict]:
     results = db.search_team_fuzzy(name, limit=3)
     if results:
         return results[0]
+    # Try resolved name (TEAM_NAME_MAP)
+    resolved = _resolve_team_name(name)
+    if resolved != name:
+        results = db.search_team_fuzzy(resolved, limit=3)
+        if results:
+            return results[0]
     # Try transliterated name
     en_name = _transliterate_ru_to_en(name)
-    if en_name != name:
+    if en_name != name and en_name != resolved:
         results = db.search_team_fuzzy(en_name, limit=3)
         if results:
             return results[0]
