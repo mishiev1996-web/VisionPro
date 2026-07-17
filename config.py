@@ -145,6 +145,7 @@ LEAGUE_TIERS = {
     "Belarus_1D":    {"tier": 3, "name": "Belarus 1. Division","country": "Belarus"},
     "Kazakhstan_PL": {"tier": 3, "name": "Kazakhstan Premier","country": "Kazakhstan"},
     "Kazakhstan_1D": {"tier": 3, "name": "Kazakhstan 1. Division","country": "Kazakhstan"},
+    "Iceland_Urvalsdeild": {"tier": 3, "name": "Úrvalsdeild", "country": "Iceland"},
 }
 
 # Leagues eligible for model training (Tier 1 + Tier 2)

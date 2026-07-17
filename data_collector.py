@@ -843,6 +843,7 @@ SSTATS_LEAGUE_IDS = {
     "MLS": 253, "Brasileirao": 71,
     "Belarus_PL": 116, "Belarus_1D": 117,
     "Kazakhstan_PL": 389, "Kazakhstan_1D": 388,
+    "Iceland_Urvalsdeild": 164,
 }
 
 
