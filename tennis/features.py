@@ -2,17 +2,12 @@
 tennis/features.py — Feature engineering for tennis predictions.
 
 Computes: ELO (overall + surface), serve stats, surface form, H2H,
-rank diff, fatigue, momentum. All from tennis.db historical data.
-
-Usage:
-    from tennis.features import TennisFeatureEngine
-    engine = TennisFeatureEngine()
-    engine.load_history()  # call once at startup
-    features = engine.get_features(player1_id, player2_id, surface)
+rank diff, fatigue, momentum, rolling totals.
 """
 from __future__ import annotations
 
 import math
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -44,12 +39,44 @@ FEATURE_NAMES = [
     "streak_diff",
 ]
 
+TOTAL_FEATURE_NAMES = [
+    "elo_diff",
+    "surface_elo_diff",
+    "rank_diff",
+    "form_diff",
+    "surface_form_diff",
+    "h2h_diff",
+    "fatigue_diff",
+    "streak_diff",
+    "recent_total_diff",      # NEW: avg total games in recent matches
+    "surface_total_diff",     # NEW: avg total games on this surface
+    "is_bo5",                 # NEW: best_of indicator
+]
+
+
+def parse_total_games(score: str) -> Optional[int]:
+    """Parse total games from score string like '6-4 7-5 6-3'."""
+    if not score:
+        return None
+    if any(x in str(score).upper() for x in ['W/O', 'RET', 'DEF', 'ABN', 'UNF']):
+        return None
+    sets = re.findall(r'(\d+)-(\d+)', score)
+    if not sets:
+        return None
+    return sum(int(a) + int(b) for a, b in sets)
+
+
+def parse_sets_played(score: str) -> Optional[int]:
+    """Parse number of sets from score."""
+    if not score:
+        return None
+    sets = re.findall(r'(\d+)-(\d+)', score)
+    return len(sets) if sets else None
+
 
 # ── ELO System ────────────────────────────────────────────────────────────────
 
 class EloSystem:
-    """ELO rating with surface-specific sub-ratings."""
-
     def __init__(self, k: int = ELO_K, init: float = ELO_INIT):
         self.k = k
         self.init = init
@@ -67,7 +94,6 @@ class EloSystem:
         return self.surface_ratings[s].get(player_id, self.init)
 
     def update(self, winner_id: int, loser_id: int, surface: str) -> Tuple[float, float, float, float]:
-        """Update after match. Returns (w_elo, l_elo, w_surf, l_surf) BEFORE update."""
         w_elo = self.get(winner_id)
         l_elo = self.get(loser_id)
         exp = self._expected(w_elo, l_elo)
@@ -89,32 +115,33 @@ class EloSystem:
 # ── Feature Engine ────────────────────────────────────────────────────────────
 
 class TennisFeatureEngine:
-    """Stateful feature engine for tennis match prediction."""
-
     def __init__(self):
         self.elo = EloSystem()
         self.h2h: Dict[Tuple[int, int], int] = defaultdict(int)
-        self.recent: Dict[int, List[bool]] = defaultdict(list)  # last N results
+        self.recent: Dict[int, List[bool]] = defaultdict(list)
         self.surface_recent: Dict[Tuple[int, str], List[bool]] = defaultdict(list)
-        self.serve_stats: Dict[int, List[Dict]] = defaultdict(list)  # last N serve stats
-        self.last_match_date: Dict[int, float] = {}  # player_id -> timestamp
+        self.serve_stats: Dict[int, List[Dict]] = defaultdict(list)
+        self.last_match_date: Dict[int, float] = {}
         self.match_dates: Dict[int, List[float]] = defaultdict(list)
         self.streak: Dict[int, int] = defaultdict(int)
         self.player_names: Dict[int, str] = {}
+        # NEW: rolling totals
+        self.recent_totals: Dict[int, List[int]] = defaultdict(list)
+        self.surface_totals: Dict[Tuple[int, str], List[int]] = defaultdict(list)
 
     def load_history(self):
-        """Load all finished matches from tennis.db and build feature state."""
         print("Loading tennis history for features...")
         with tennis_db.connect() as conn:
-            matches = conn.execute("""
+            matches = [tuple(r) for r in conn.execute("""
                 SELECT player1_id, player2_id, winner_id, surface, date,
                        player1_name, player2_name,
                        w_1stIn, w_svpt, w_1stWon, w_2ndWon, w_bpSaved, w_bpFaced,
-                       l_1stIn, l_svpt, l_1stWon, l_2ndWon, l_bpSaved, l_bpFaced
+                       l_1stIn, l_svpt, l_1stWon, l_2ndWon, l_bpSaved, l_bpFaced,
+                       score
                 FROM tennis_matches 
                 WHERE status='finished' AND date IS NOT NULL
                 ORDER BY date ASC
-            """).fetchall()
+            """).fetchall()]
 
         print(f"  Processing {len(matches)} matches...")
         for m in matches:
@@ -122,17 +149,16 @@ class TennisFeatureEngine:
             surface = (m[3] or "hard").lower()
             date_str = m[4] or ""
             p1_name, p2_name = m[5], m[6]
+            score = m[20] if len(m) > 20 else None
 
             if p1_id: self.player_names[p1_id] = p1_name
             if p2_id: self.player_names[p2_id] = p2_name
 
-            # Parse date
             try:
                 ts = float(date_str.replace("-", ""))
             except:
                 ts = 0
 
-            # Determine winner/loser IDs
             if winner_id == p1_id:
                 w_id, l_id = p1_id, p2_id
             elif winner_id == p2_id:
@@ -140,65 +166,66 @@ class TennisFeatureEngine:
             else:
                 continue
 
-            # ELO
-            self.elo.update(w_id, l_id, surface)
+            # Update all state
+            self.update(w_id, l_id, surface, date_str, score=score)
 
-            # H2H
-            self.h2h[(w_id, l_id)] += 1
+        print(f"  Loaded {len(self.player_names)} players")
 
-            # Recent form
-            self.recent[w_id].append(True)
-            self.recent[l_id].append(False)
-            if len(self.recent[w_id]) > ROLLING_WINDOW:
-                self.recent[w_id] = self.recent[w_id][-ROLLING_WINDOW:]
-            if len(self.recent[l_id]) > ROLLING_WINDOW:
-                self.recent[l_id] = self.recent[l_id][-ROLLING_WINDOW:]
+    def update(self, winner_id: int, loser_id: int, surface: str,
+               date: str = None, serve_stats: Dict = None, score: str = None):
+        self.elo.update(winner_id, loser_id, surface)
+        self.h2h[(winner_id, loser_id)] += 1
 
-            # Surface form
-            self.surface_recent[(w_id, surface)].append(True)
-            self.surface_recent[(l_id, surface)].append(False)
-            if len(self.surface_recent[(w_id, surface)]) > SURFACE_WINDOW:
-                self.surface_recent[(w_id, surface)] = self.surface_recent[(w_id, surface)][-SURFACE_WINDOW:]
-            if len(self.surface_recent[(l_id, surface)]) > SURFACE_WINDOW:
-                self.surface_recent[(l_id, surface)] = self.surface_recent[(l_id, surface)][-SURFACE_WINDOW:]
+        self.recent[winner_id].append(True)
+        self.recent[loser_id].append(False)
+        if len(self.recent[winner_id]) > ROLLING_WINDOW:
+            self.recent[winner_id] = self.recent[winner_id][-ROLLING_WINDOW:]
+        if len(self.recent[loser_id]) > ROLLING_WINDOW:
+            self.recent[loser_id] = self.recent[loser_id][-ROLLING_WINDOW:]
 
-            # Serve stats
-            for pid, prefix in [(w_id, "w"), (l_id, "l")]:
-                svpt = m[7+8] if prefix == "w" else m[14]  # w_svpt or l_svpt
-                st_in = m[7+3] if prefix == "w" else m[14-3]  # w_1stIn or l_1stIn
-                st_won = m[7+4] if prefix == "w" else m[14-2]  # w_1stWon or l_1stWon
-                s2_won = m[7+5] if prefix == "w" else m[14-1]  # w_2ndWon or l_2ndWon
-                bp_s = m[7+6] if prefix == "w" else m[14+1]   # w_bpSaved or l_bpSaved
-                bp_f = m[7+7] if prefix == "w" else m[14+2]   # w_bpFaced or l_bpFaced
+        s = surface.lower() if surface.lower() in SURFACES else "hard"
+        self.surface_recent[(winner_id, s)].append(True)
+        self.surface_recent[(loser_id, s)].append(False)
+        if len(self.surface_recent[(winner_id, s)]) > SURFACE_WINDOW:
+            self.surface_recent[(winner_id, s)] = self.surface_recent[(winner_id, s)][-SURFACE_WINDOW:]
+        if len(self.surface_recent[(loser_id, s)]) > SURFACE_WINDOW:
+            self.surface_recent[(loser_id, s)] = self.surface_recent[(loser_id, s)][-SURFACE_WINDOW:]
 
-                stats = {}
-                try:
-                    svpt = float(svpt) if svpt else 0
-                    if svpt > 0:
-                        stats["1stIn"] = float(st_in) / svpt * 100 if st_in else 50
-                        stats["1stWon"] = float(st_won) / float(st_in) * 100 if st_in and float(st_in) > 0 else 50
-                        stats["2ndWon"] = float(s2_won) / (svpt - float(st_in)) * 100 if st_in and svpt > float(st_in) else 50
-                        stats["bpSaved"] = float(bp_s) / float(bp_f) * 100 if bp_f and float(bp_f) > 0 else 50
-                    else:
-                        stats = {"1stIn": 50, "1stWon": 50, "2ndWon": 50, "bpSaved": 50}
-                except:
-                    stats = {"1stIn": 50, "1stWon": 50, "2ndWon": 50, "bpSaved": 50}
-
+        if serve_stats:
+            for pid, stats in serve_stats.items():
                 self.serve_stats[pid].append(stats)
                 if len(self.serve_stats[pid]) > ROLLING_WINDOW:
                     self.serve_stats[pid] = self.serve_stats[pid][-ROLLING_WINDOW:]
 
-            # Fatigue
-            self.last_match_date[w_id] = ts
-            self.last_match_date[l_id] = ts
-            self.match_dates[w_id].append(ts)
-            self.match_dates[l_id].append(ts)
+        try:
+            ts = float((date or "").replace("-", ""))
+        except:
+            ts = 0
+        if ts > 0:
+            self.last_match_date[winner_id] = ts
+            self.last_match_date[loser_id] = ts
+            self.match_dates[winner_id].append(ts)
+            self.match_dates[loser_id].append(ts)
 
-            # Streak
-            self.streak[w_id] = max(self.streak[w_id], 0) + 1
-            self.streak[l_id] = min(self.streak[l_id], 0) - 1
+        self.streak[winner_id] = max(self.streak[winner_id], 0) + 1
+        self.streak[loser_id] = min(self.streak[loser_id], 0) - 1
 
-        print(f"  Loaded {len(self.player_names)} players")
+        # Rolling totals
+        total = parse_total_games(score)
+        if total is not None:
+            self.recent_totals[winner_id].append(total)
+            self.recent_totals[loser_id].append(total)
+            if len(self.recent_totals[winner_id]) > ROLLING_WINDOW:
+                self.recent_totals[winner_id] = self.recent_totals[winner_id][-ROLLING_WINDOW:]
+            if len(self.recent_totals[loser_id]) > ROLLING_WINDOW:
+                self.recent_totals[loser_id] = self.recent_totals[loser_id][-ROLLING_WINDOW:]
+            
+            self.surface_totals[(winner_id, s)].append(total)
+            self.surface_totals[(loser_id, s)].append(total)
+            if len(self.surface_totals[(winner_id, s)]) > SURFACE_WINDOW:
+                self.surface_totals[(winner_id, s)] = self.surface_totals[(winner_id, s)][-SURFACE_WINDOW:]
+            if len(self.surface_totals[(loser_id, s)]) > SURFACE_WINDOW:
+                self.surface_totals[(loser_id, s)] = self.surface_totals[(loser_id, s)][-SURFACE_WINDOW:]
 
     def _avg_serve(self, player_id: int, stat: str) -> float:
         stats = self.serve_stats.get(player_id, [])[-ROLLING_WINDOW:]
@@ -220,18 +247,20 @@ class TennisFeatureEngine:
         last = self.last_match_date.get(player_id)
         if last and current_ts > 0:
             return current_ts - last
-        return 14.0  # default
+        return 14.0
 
-    def _matches_14d(self, player_id: int, current_ts: float) -> int:
-        dates = self.match_dates.get(player_id, [])
-        cutoff = current_ts - 14
-        return sum(1 for d in dates if d >= cutoff)
+    def _recent_total(self, player_id: int) -> float:
+        totals = self.recent_totals.get(player_id, [])[-ROLLING_WINDOW:]
+        return float(np.mean(totals)) if totals else 25.0
+
+    def _surface_total(self, player_id: int, surface: str) -> float:
+        s = surface.lower() if surface.lower() in SURFACES else "hard"
+        totals = self.surface_totals.get((player_id, s), [])[-SURFACE_WINDOW:]
+        return float(np.mean(totals)) if totals else 25.0
 
     def get_features(self, p1_id: int, p2_id: int, surface: str,
                      p1_rank: int = None, p2_rank: int = None,
                      current_date: str = None) -> Dict[str, float]:
-        """Get feature vector for a match between p1 and p2."""
-        # Parse current date
         try:
             current_ts = float((current_date or "").replace("-", ""))
         except:
@@ -241,22 +270,19 @@ class TennisFeatureEngine:
         elo2 = self.elo.get(p2_id)
         s1 = self.elo.get_surface(p1_id, surface)
         s2 = self.elo.get_surface(p2_id, surface)
-
         h2h1 = self.h2h.get((p1_id, p2_id), 0)
         h2h2 = self.h2h.get((p2_id, p1_id), 0)
-
         f1 = self._form(p1_id)
         f2 = self._form(p2_id)
         sf1 = self._surface_form(p1_id, surface)
         sf2 = self._surface_form(p2_id, surface)
-
         rank1 = p1_rank if p1_rank else 100
         rank2 = p2_rank if p2_rank else 100
 
         return {
             "elo_diff": elo1 - elo2,
             "surface_elo_diff": s1 - s2,
-            "rank_diff": rank2 - rank1,  # positive = p1 ranked higher
+            "rank_diff": rank2 - rank1,
             "form_diff": f1 - f2,
             "surface_form_diff": sf1 - sf2,
             "h2h_diff": h2h1 - h2h2,
@@ -267,59 +293,34 @@ class TennisFeatureEngine:
             "streak_diff": self.streak.get(p1_id, 0) - self.streak.get(p2_id, 0),
         }
 
-    def update(self, winner_id: int, loser_id: int, surface: str,
-               date: str = None, serve_stats: Dict = None):
-        """Update state AFTER a match (call after get_features)."""
-        # ELO
-        self.elo.update(winner_id, loser_id, surface)
-
-        # H2H
-        self.h2h[(winner_id, loser_id)] += 1
-
-        # Recent form
-        self.recent[winner_id].append(True)
-        self.recent[loser_id].append(False)
-        if len(self.recent[winner_id]) > ROLLING_WINDOW:
-            self.recent[winner_id] = self.recent[winner_id][-ROLLING_WINDOW:]
-        if len(self.recent[loser_id]) > ROLLING_WINDOW:
-            self.recent[loser_id] = self.recent[loser_id][-ROLLING_WINDOW:]
-
-        # Surface form
-        s = surface.lower() if surface.lower() in SURFACES else "hard"
-        self.surface_recent[(winner_id, s)].append(True)
-        self.surface_recent[(loser_id, s)].append(False)
-        if len(self.surface_recent[(winner_id, s)]) > SURFACE_WINDOW:
-            self.surface_recent[(winner_id, s)] = self.surface_recent[(winner_id, s)][-SURFACE_WINDOW:]
-        if len(self.surface_recent[(loser_id, s)]) > SURFACE_WINDOW:
-            self.surface_recent[(loser_id, s)] = self.surface_recent[(loser_id, s)][-SURFACE_WINDOW:]
-
-        # Serve stats
-        if serve_stats:
-            for pid, stats in serve_stats.items():
-                self.serve_stats[pid].append(stats)
-                if len(self.serve_stats[pid]) > ROLLING_WINDOW:
-                    self.serve_stats[pid] = self.serve_stats[pid][-ROLLING_WINDOW:]
-
-        # Fatigue
-        try:
-            ts = float((date or "").replace("-", ""))
-        except:
-            ts = 0
-        if ts > 0:
-            self.last_match_date[winner_id] = ts
-            self.last_match_date[loser_id] = ts
-            self.match_dates[winner_id].append(ts)
-            self.match_dates[loser_id].append(ts)
-
-        # Streak
-        self.streak[winner_id] = max(self.streak[winner_id], 0) + 1
-        self.streak[loser_id] = min(self.streak[loser_id], 0) - 1
+    def get_total_features(self, p1_id: int, p2_id: int, surface: str,
+                           p1_rank: int = None, p2_rank: int = None,
+                           is_bo5: int = 0, current_date: str = None) -> Dict[str, float]:
+        """Features for total games prediction."""
+        base = self.get_features(p1_id, p2_id, surface, p1_rank, p2_rank, current_date)
+        
+        t1 = self._recent_total(p1_id)
+        t2 = self._recent_total(p2_id)
+        st1 = self._surface_total(p1_id, surface)
+        st2 = self._surface_total(p2_id, surface)
+        
+        return {
+            "elo_diff": base["elo_diff"],
+            "surface_elo_diff": base["surface_elo_diff"],
+            "rank_diff": base["rank_diff"],
+            "form_diff": base["form_diff"],
+            "surface_form_diff": base["surface_form_diff"],
+            "h2h_diff": base["h2h_diff"],
+            "fatigue_diff": base["fatigue_diff"],
+            "streak_diff": base["streak_diff"],
+            "recent_total_diff": t1 - t2,
+            "surface_total_diff": st1 - st2,
+            "is_bo5": is_bo5,
+        }
 
     def get_player_name(self, player_id: int) -> str:
         return self.player_names.get(player_id, f"Player_{player_id}")
 
-
-# ── Singleton ─────────────────────────────────────────────────────────────────
 
 _engine: Optional[TennisFeatureEngine] = None
 
