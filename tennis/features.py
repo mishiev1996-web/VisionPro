@@ -267,6 +267,54 @@ class TennisFeatureEngine:
             "streak_diff": self.streak.get(p1_id, 0) - self.streak.get(p2_id, 0),
         }
 
+    def update(self, winner_id: int, loser_id: int, surface: str,
+               date: str = None, serve_stats: Dict = None):
+        """Update state AFTER a match (call after get_features)."""
+        # ELO
+        self.elo.update(winner_id, loser_id, surface)
+
+        # H2H
+        self.h2h[(winner_id, loser_id)] += 1
+
+        # Recent form
+        self.recent[winner_id].append(True)
+        self.recent[loser_id].append(False)
+        if len(self.recent[winner_id]) > ROLLING_WINDOW:
+            self.recent[winner_id] = self.recent[winner_id][-ROLLING_WINDOW:]
+        if len(self.recent[loser_id]) > ROLLING_WINDOW:
+            self.recent[loser_id] = self.recent[loser_id][-ROLLING_WINDOW:]
+
+        # Surface form
+        s = surface.lower() if surface.lower() in SURFACES else "hard"
+        self.surface_recent[(winner_id, s)].append(True)
+        self.surface_recent[(loser_id, s)].append(False)
+        if len(self.surface_recent[(winner_id, s)]) > SURFACE_WINDOW:
+            self.surface_recent[(winner_id, s)] = self.surface_recent[(winner_id, s)][-SURFACE_WINDOW:]
+        if len(self.surface_recent[(loser_id, s)]) > SURFACE_WINDOW:
+            self.surface_recent[(loser_id, s)] = self.surface_recent[(loser_id, s)][-SURFACE_WINDOW:]
+
+        # Serve stats
+        if serve_stats:
+            for pid, stats in serve_stats.items():
+                self.serve_stats[pid].append(stats)
+                if len(self.serve_stats[pid]) > ROLLING_WINDOW:
+                    self.serve_stats[pid] = self.serve_stats[pid][-ROLLING_WINDOW:]
+
+        # Fatigue
+        try:
+            ts = float((date or "").replace("-", ""))
+        except:
+            ts = 0
+        if ts > 0:
+            self.last_match_date[winner_id] = ts
+            self.last_match_date[loser_id] = ts
+            self.match_dates[winner_id].append(ts)
+            self.match_dates[loser_id].append(ts)
+
+        # Streak
+        self.streak[winner_id] = max(self.streak[winner_id], 0) + 1
+        self.streak[loser_id] = min(self.streak[loser_id], 0) - 1
+
     def get_player_name(self, player_id: int) -> str:
         return self.player_names.get(player_id, f"Player_{player_id}")
 
