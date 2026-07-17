@@ -879,7 +879,9 @@ _load_team_cache()
 
 
 TEAM_NAME_MAP = {
-    # National teams
+    # ══════════════════════════════════════════════════════════════════════════
+    # NATIONAL TEAMS (Russian + German → English)
+    # ══════════════════════════════════════════════════════════════════════════
     "испания": "Spain", "spania": "Spain", "spanien": "Spain",
     "аргентина": "Argentina", "argentinien": "Argentina",
     "бразилия": "Brazil", "brasilien": "Brazil",
@@ -916,8 +918,207 @@ TEAM_NAME_MAP = {
     "иран": "Iran",
     "саудовская аравия": "Saudi Arabia",
     "катар": "Qatar",
+    "уругвай": "Uruguay", "uruguay": "Uruguay",
+    "колумбия": "Colombia", "kolumbien": "Colombia",
+    "чили": "Chile", "chile": "Chile",
+    "эквадор": "Ecuador",
+    "перу": "Peru", "peru": "Peru",
+    "парагвай": "Paraguay",
+    "венесуэла": "Venezuela",
+    "коста-рика": "Costa Rica",
+    "ямайка": "Jamaica",
+    "греция": "Greece", "griechenland": "Greece",
+    "румыния": "Romania", "ruminien": "Romania",
+    "венгрия": "Hungary", "ungarn": "Hungary",
+    "болгария": "Bulgaria",
+    "словакия": "Slovakia",
+    "словения": "Slovenia",
+    "финляндия": "Finland", "finnland": "Finland",
+    "исландия": "Iceland", "island": "Iceland",
+    "уэльс": "Wales",
+    "грузия": "Georgia",
+    "армения": "Armenia",
+    "азербайджан": "Azerbaijan",
+    "узбекистан": "Uzbekistan",
+    "казахстан": "Kazakhstan",
+    "беларусь": "Belarus",
+    # "сборная X" variants
+    "сборная россии": "Russia", "сборная украины": "Ukraine",
+    "сборная казахстана": "Kazakhstan", "сборная беларуси": "Belarus",
+    "сборная германии": "Germany", "сборная франции": "France",
+    "сборная англии": "England", "сборная испании": "Spain",
+    "сборная италии": "Italy", "сборная португалии": "Portugal",
+    "сборная бразилии": "Brazil", "сборная аргентины": "Argentina",
+    "сборная нидерландов": "Netherlands", "сборная бельгии": "Belgium",
+    "сборная хорватии": "Croatia", "сборная сербии": "Serbia",
+    "сборная чехии": "Czech Republic", "сборная дании": "Denmark",
+    "сборная швеции": "Sweden", "сборная норвегии": "Norway",
+    "сборная польши": "Poland", "сборная турции": "Turkey",
+    "сборная греции": "Greece", "сборная румынии": "Romania",
+    "сборная швейцарии": "Switzerland", "сборная австрии": "Austria",
+    "сборная шотландии": "Scotland", "сборная ирландии": "Republic of Ireland",
+    "сборная южной кореи": "South Korea", "сборная японии": "Japan",
+    "сборная сша": "USA", "сборная канады": "Canada", "сборная мексики": "Mexico",
+    "сборная египта": "Egypt", "сборная морокко": "Morocco", "сборная сенегала": "Senegal",
+    "сборная nigeria": "Nigeria", "сборная австралии": "Australia",
+    "сборная ирана": "Iran", "сборная кореи": "South Korea",
+    "сборная уругвая": "Uruguay", "сборная колумбии": "Colombia",
+    "сборная чили": "Chile", "сборная перу": "Peru",
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # EPL (all 20 teams)
+    # ══════════════════════════════════════════════════════════════════════════
+    "арсенал": "Arsenal", "челси": "Chelsea", "ливерпуль": "Liverpool",
+    "манчестер юнайтед": "Manchester United", "манчестер сити": "Manchester City",
+    "тоттенхэм": "Tottenham", "тоттенхэм Хотспур": "Tottenham",
+    "ニューカッスル": "Newcastle United", "ньюкасл": "Newcastle United",
+    "астон вилла": "Aston Villa", "brighton": "Brighton",
+    "брайтон": "Brighton", "уотфорд": "Watford",
+    "вархем": "West Ham", "вест хэм": "West Ham", "вестхэм": "West Ham",
+    "кристал пэлас": "Crystal Palace", "кристал пэлас": "Crystal Palace",
+    "фулхэм": "Fulham", "ноттингем": "Nottingham Forest",
+    "ноттингем форест": "Nottingham Forest", "ноттингем лес": "Nottingham Forest",
+    "вулверхэмптон": "Wolverhampton", "вулвз": "Wolverhampton",
+    "бёрнли": "Burnley", "бернли": "Burnley",
+    "лутон": "Luton Town", "эвертон": "Everton",
+    "бокс": "Bournemouth", "борнмут": "Bournemouth",
+    "бренфорд": "Brentford",
+    # ══════════════════════════════════════════════════════════════════════════
+    # La Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "барселона": "Barcelona", "реал мадрид": "Real Madrid",
+    "атлетико мадрид": "Atletico Madrid", "реал сосьедад": "Real Sociedad",
+    "реал бетис": "Real Betis", "вильярреал": "Villarreal",
+    "севилья": "Sevilla", "athletic": "Athletic Bilbao", "athletic билбао": "Athletic Bilbao",
+    "атлетик билбао": "Athletic Bilbao", "хетафе": "Getafe",
+    "осасуна": "Osasuna", "мальорка": "Mallorca", "алмерия": "Almeria",
+    "лас-пальмас": "Las Palmas", "лас пальмас": "Las Palmas",
+    "кадис": "Cadiz", "гранада": "Granada", "эльче": "Elche",
+    " levante": "Levante", "levante": "Levante",
+    "Real Valladolid": "Real Valladolid", "реал вальядолид": "Real Valladolid",
+    "celta": "Celta Vigo", "сьельта": "Celta Vigo", "сьельта вигo": "Celta Vigo",
+    "espanyol": "Espanyol", "эспаньол": "Espanyol",
+    "Rayo Vallecano": "Rayo Vallecano", "райо вальекано": "Rayo Vallecano",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Bundesliga
+    # ══════════════════════════════════════════════════════════════════════════
+    "байерн": "Bayern Munich", "байерн мюнхен": "Bayern Munich",
+    "дортмунд": "Borussia Dortmund", "боруссия дортмунд": "Borussia Dortmund",
+    " Leverkusen": "Bayer Leverkusen", "leverkusen": "Bayer Leverkusen",
+    "байер leverkusen": "Bayer Leverkusen", "бавария": "Bayern Munich",
+    "RB Leipzig": "RB Leipzig", "рб лейпциг": "RB Leipzig",
+    "Eintracht Frankfurt": "Eintracht Frankfurt", "айнтрахт франкфурт": "Eintracht Frankfurt",
+    "frankfurt": "Eintracht Frankfurt", "frankfurt": "Eintracht Frankfurt",
+    "VfB Stuttgart": "VfB Stuttgart", "штутгарт": "VfB Stuttgart",
+    "Wolfsburg": "Wolfsburg", "вольфсбург": "Wolfsburg",
+    "Freiburg": "Freiburg", "фрайбург": "Freiburg",
+    "Hoffenheim": "Hoffenheim", "хоффенхайм": "Hoffenheim",
+    "Union Berlin": "Union Berlin", "унион берлин": "Union Berlin",
+    "Werder Bremen": "Werder Bremen", "вердер": "Werder Bremen",
+    "Mainz": "Mainz 05", "майнц": "Mainz 05",
+    "Augsburg": "Augsburg", "аугсбург": "Augsburg",
+    "Bochum": "Bochum", "бочум": "Bochum",
+    "Heidenheim": "Heidenheim", "хайденхайм": "Heidenheim",
+    "Darmstadt": "Darmstadt", "дармштадт": "Darmstadt",
+    "Koln": "Koln", "köln": "Koln", "кёльн": "Koln",
+    "Gladbach": "Borussia Monchengladbach", "гладбах": "Borussia Monchengladbach",
+    "St. Pauli": "St. Pauli", "санкт-паули": "St. Pauli",
+    "Holstein Kiel": "Holstein Kiel", "хольштейн киль": "Holstein Kiel",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Serie A
+    # ══════════════════════════════════════════════════════════════════════════
+    "ювентус": "Juventus", "наполи": "Napoli", "интер": "Inter Milan",
+    "интернационале": "Inter Milan", "милан": "AC Milan", "AC Milan": "AC Milan",
+    "рим": "Roma", "рома": "Roma", "лацио": "Lazio",
+    "аталанта": "Atalanta", "фиорентина": "Fiorentina",
+    "тоттенхэм": "Tottenham", "torino": "Torino", "торино": "Torino",
+    "bolonia": "Bologna", "болонья": "Bologna",
+    "monza": "Monza", "монца": "Monza",
+    " Udinese": "Udinese", "удинезе": "Udinese",
+    "sassuolo": "Sassuolo", "sassуolo": "Sassuolo",
+    "Empoli": "Empoli", "эмполи": "Empoli",
+    "Cagliari": "Cagliari", "кальяри": "Cagliari",
+    "Genoa": "Genoa", "дженоа": "Genoa",
+    "Lecce": "Lecce", "лечче": "Lecce",
+    "Frosinone": "Frosinone", "фрозиноне": "Frosinone",
+    "Verona": "Verona", "верона": "Verona",
+    "Salernitana": "Salernitana", "салернитана": "Salernitana",
+    "Udinese": "Udinese", "Комо": "Como",
+    "Parma": "Parma", "парма": "Parma",
+    "Venezia": "Venezia", "венеция": "Venezia",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Ligue 1
+    # ══════════════════════════════════════════════════════════════════════════
+    "пари сен-жермен": "Paris Saint-Germain", "псж": "Paris Saint-Germain",
+    "paris saint-germain": "Paris Saint-Germain",
+    "лион": "Lyon", "марсель": "Marseille", "лилль": "Lille",
+    "монако": "Monaco", "ницца": "Nice", "Nice": "Nice",
+    "Ренн": "Rennes", "rennes": "Rennes",
+    "Реимс": "Reims", "reims": "Reims",
+    "Монпелье": "Montpellier", "montpellier": "Montpellier",
+    "Расинг": "Racing Lens", "lens": "Racing Lens",
+    "Нант": "Nantes", "nantes": "Nantes",
+    "Тулуза": "Toulouse", "toulouse": "Toulouse",
+    "Сент-Этьен": "Saint-Etienne", "saint-etienne": "Saint-Etienne",
+    "Страсбур": "Strasbourg", "strasbourg": "Strasbourg",
+    "Лорьян": "Lorient", "lorient": "Lorient",
+    "Метц": "Metz", "metz": "Metz",
+    "Клермон": "Clermont", "clermont": "Clermont",
+    "Лилль": "Lille", "Lille": "Lille",
+    "Брест": "Brest", "brest": "Brest",
+    "Ле-Гавр": "Le Havre", "Le Havre": "Le Havre",
+    "Олимпик Марсель": "Olympique Marseille",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Eredivisie
+    # ══════════════════════════════════════════════════════════════════════════
+    "ajax": "Ajax", "айакс": "Ajax", "psv": "PSV", "псв": "PSV",
+    "AZ": "AZ Alkmaar", "az": "AZ Alkmaar", "аз": "AZ Alkmaar",
+    "feyenoord": "Feyenoord", "фейеноорд": "Feyenoord",
+    "twente": "Twente", "твенте": "Twente",
+    "utrecht": "Utrecht", "утрехт": "Utrecht",
+    "Vitesse": "Vitesse", "витессе": "Vitesse",
+    "Go Ahead Eagles": "Go Ahead Eagles",
+    "Heerenveen": "Heerenveen", "херенвен": "Heerenveen",
+    "Sparta Rotterdam": "Sparta Rotterdam",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Primeira Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "бенфика": "Benfica", "порту": "Porto", "брага": "Braga",
+    "sporting cp": "Sporting CP", "спортинг": "Sporting CP",
+    "Sporting": "Sporting CP",
+    "sporting cristal": "Sporting Cristal", "спортинг кристал": "Sporting Cristal",
+    "спортинг кристалл": "Sporting Cristal",
+    "Витория Гимараеш": "Vitoria Guimaraes", "vitória de guimarães": "Vitoria Guimaraes",
+    "Boavista": "Boavista", "бавишта": "Boavista",
+    "Gil Vicente": "Gil Vicente",
+    "Famalicao": "Famalicao", "фамаликан": "Famalicao",
+    "Arouca": "Arouca", "ароука": "Arouca",
+    "Casa Pia": "Casa Pia",
+    "Estoril": "Estoril", "эшторил": "Estoril",
+    "Rio Ave": "Rio Ave",
+    "Moreirense": "Moreirense",
+    "Vizela": "Vizela",
+    "Portimonense": "Portimonense",
+    "Chaves": "Chaves",
+    "Estrela Amadora": "Estrela Amadora",
+    "Farense": "Farense", "фаренсе": "Farense",
+    "Boavista": "Boavista",
+    "Arока": "Arouca",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Süper Lig
+    # ══════════════════════════════════════════════════════════════════════════
+    "галатасарай": "Galatasaray", "фенербахче": "Fenerbahce",
+    "бешикташ": "Besiktas", "трабзонспор": "Trabzonspor",
+    "Истанбул Башакшехир": "Istanbul Basaksehir",
+    "Антальяспор": "Antalyaspor", "Анталья": "Antalyaspor",
+    "Коньяспор": "Konyaspor", "Аланьяспор": "Alanyaspor",
+    "Хатайспор": "Hatayspor", "Касымпаша": "Kasimpasa",
+    "Гиресунспор": "Giresunspor", "Умраниспор": "Umraniyespor",
+    "Адана Демирспор": "Adana Demirspor", "Инбашакхир": "Istanbul Basaksehir",
+    # ══════════════════════════════════════════════════════════════════════════
     # Russia
-    "арсенал тула": "Arsenal Tula", "арсенал": "Arsenal Tula",
+    # ══════════════════════════════════════════════════════════════════════════
+    "арсенал тула": "Arsenal Tula",
     "зенит": "Zenit St Petersburg", "зенит санкт-петербург": "Zenit St Petersburg",
     "спартак": "Spartak Moscow", "спартак москва": "Spartak Moscow",
     "цска": "CSKA Moscow", "цска москва": "CSKA Moscow",
@@ -929,174 +1130,220 @@ TEAM_NAME_MAP = {
     "химки": "Khimki", "торпедо": "Torpedo Moscow",
     "балтика": "Baltika Kaliningrad", "рубин": "Rubin Kazan",
     "урал": "Ural Yekaterinburg", "пари НН": "Pari Nizhny Novgorod",
-    # Ukraine
-    "шахтёр": "Shakhtar Donetsk", "шахтёр донецк": "Shakhtar Donetsk",
-    "динамо киев": "Dynamo Kyiv", "динамо київ": "Dynamo Kyiv",
-    # Kazakhstan
-    "каират": "Kairat Almaty", "астана": "FC Astana",
-    "улытау": "Ulytau", "улытау жезказган": "Ulytau",
-    "ордабасы": "Ordabasy", "актобе": "Aktobe",
-    "тобол": "FK Tobol Kostanay", "касыпий": "Kaspiy",
-    "каизар": "Kaisar", "окжетпес": "Okzhetpes",
-    "тобыл": "FK Tobol Kostanay", "тобыл костанай": "FK Tobol Kostanay",
-    "химик": "Kyzyl-Zhar", "кызыл-жар": "Kyzyl-Zhar",
-    "атырау": "Atyrau", "экибастуз": "Ekibastuz",
-    "зиен": "Zhenys", "жетсу": "Zhetysu",
-    "тұран түркестан": "Turan Turkistan", "тұран": "Turan Turkistan",
-    "елімай": "Yelimay Semey", "семей": "Yelimay Semey",
-    "алтай": "Altay", "алтай оскемен": "Altay",
-    # Azerbaijan
-    "кара́бах": "Qarabag", "карабах": "Qarabag", "карабаг": "Qarabag",
-    "нефтчи": "Neftchi Baku", "нефтяник": "Neftchi Baku",
-    "сумгаит": "Sumqayit", "сумгайыт": "Sumqayit",
-    # Iceland (club teams - not in DB, will show "no data")
-    "филкир": "Fylkir Reykjavik", "филкир рейкьявик": "Fylkir Reykjavik",
-    "ньярдвик": "Njardvik", "ньярдвинк": "Njardvik",
-    "валюр": "Valur Reykjavik", "рейкьявик": "Reykjavik",
-    "вакин": "Vikingur Reykjavik", "викингур": "Vikingur Reykjavik",
-    # Ireland
-    "дерри сити": "Derry City", "дерри": "Derry City",
-    "шемрок роверс": "Shamrock Rovers",
-    "корк": "Cork City",
-    "даун": "Dundalk", "далки": "Dundalk",
-    # Bulgaria
-    "цска софия": "CSKA Sofia",
-    "левски": "Levski Sofia", "левски софия": "Levski Sofia",
-    "лудогорец": "Ludogorets", "лудогорец разград": "Ludogorets",
-    "славия": "Slavia Sofia", "славия софия": "Slavia Sofia",
-    # Belarus
-    "батэ": "BATE Borisov", "динамо минск": "Dynamo Minsk",
-    # National teams
-    "сборная россии": "Russia", "россия": "Russia",
-    "сборная украины": "Ukraine", "украина": "Ukraine",
-    "сборная казахстана": "Kazakhstan", "казахстан": "Kazakhstan",
-    "сборная беларуси": "Belarus", "беларусь": "Belarus",
-    "сборная германии": "Germany", "германия": "Germany",
-    "сборная франции": "France", "франция": "France",
-    "сборная англии": "England", "англия": "England",
-    "сборная испании": "Spain", "испания": "Spain",
-    "сборная италии": "Italy", "италия": "Italy",
-    "сборная португалии": "Portugal", "португалия": "Portugal",
-    "сборная бразилии": "Brazil", "бразилия": "Brazil",
-    "сборная аргентины": "Argentina", "аргентина": "Argentina",
-    "сборная нидерландов": "Netherlands", "нидерланды": "Netherlands",
-    "сборная бельгии": "Belgium", "бельгия": "Belgium",
-    "сборная хорватии": "Croatia", "хорватия": "Croatia",
-    "сборная сербии": "Serbia", "сербия": "Serbia",
-    "сборная чехии": "Czech Republic", "чехия": "Czech Republic",
-    "сборная швейцарии": "Switzerland", "швейцария": "Switzerland",
-    "сборная швеции": "Sweden", "швеция": "Sweden",
-    "сборная польши": "Poland", "польша": "Poland",
-    "сборная турции": "Turkey", "турция": "Turkey",
-    "сборная греции": "Greece", "греция": "Greece",
-    "сборная дании": "Denmark", "дания": "Denmark",
-    "сборная норвегии": "Norway", "норвегия": "Norway",
-    "сборная австрии": "Austria", "австрия": "Austria",
-    "сборная шотландии": "Scotland", "шотландия": "Scotland",
-    "сборная ирландии": "Republic of Ireland", "ирландия": "Republic of Ireland",
-    "сборная южной кореи": "South Korea", "южная корея": "South Korea",
-    "сборная японии": "Japan", "япония": "Japan",
-    "сборная сша": "USA", "сша": "USA",
-    "сборная канады": "Canada", "канада": "Canada",
-    "сборная мексики": "Mexico", "мексика": "Mexico",
-    "сборная египта": "Egypt", "египет": "Egypt",
-    "сборная морокко": "Morocco", "марокко": "Morocco",
-    "сборная сенегала": "Senegal", "сенегал": "Senegal",
-    "сборная nigeria": "Nigeria", "нигерия": "Nigeria",
-    "сборная австралии": "Australia", "австралия": "Australia",
-    "иран": "Iran", "сборная ирана": "Iran",
-    "сборная кореи": "South Korea", "корея": "South Korea",
-    "сборная саудовской аравии": "Saudi Arabia", "саудовская аравия": "Saudi Arabia",
-    "сборная катара": "Qatar", "катар": "Qatar",
-    "сборная уругвая": "Uruguay", "уругвай": "Uruguay",
-    "сборная колумбии": "Colombia", "колумбия": "Colombia",
-    "сборная чили": "Chile", "чили": "Chile",
-    "сборная эквадора": "Ecuador", "эквадор": "Ecuador",
-    "сборная перу": "Peru", "перу": "Peru",
-    "сборная боливии": "Bolivia", "боливия": "Bolivia",
-    "сборная парагвая": "Paraguay", "парагвай": "Paraguay",
-    "сборная венесуэлы": "Venezuela", "венесуэла": "Venezuela",
-    "сборная коста-рики": "Costa Rica", "коста-рика": "Costa Rica",
-    "сборная панамы": "Panama", "панама": "Panama",
-    "сборная ямайки": "Jamaica", "ямайка": "Jamaica",
-    "сборная гондураса": "Honduras", "гондурас": "Honduras",
-    "сборная камеруна": "Cameroon", "камерун": "Cameroon",
-    "сборная ганы": "Ghana", "гана": "Ghana",
-    "сборная кот-д'ивуара": "Ivory Coast", "кот-д'ивуар": "Ivory Coast",
-    "сборная туниса": "Tunisia", "тунис": "Tunisia",
-    "сборная алжира": "Algeria", "алжир": "Algeria",
-    "сборная румынии": "Romania", "румыния": "Romania",
-    "сборная венгрии": "Hungary", "венгрия": "Hungary",
-    "сборная болгарии": "Bulgaria", "болгария": "Bulgaria",
-    "сборная словакии": "Slovakia", "словакия": "Slovakia",
-    "сборная словении": "Slovenia", "словения": "Slovenia",
-    "сборная финляндии": "Finland", "финляндия": "Finland",
-    "сборная исландии": "Iceland", "исландия": "Iceland",
-    "сборная уэльса": "Wales", "уэльс": "Wales",
-    "сборная украины": "Ukraine", "украина": "Ukraine",
-    "сборная грузии": "Georgia", "грузия": "Georgia",
-    "сборная армении": "Armenia", "армения": "Armenia",
-    "сборная азербайджана": "Azerbaijan", "азербайджан": "Azerbaijan",
-    "сборная узбекистана": "Uzbekistan", "узбекистан": "Uzbekistan",
-    # Common clubs (Russian names)
-    "челси": "Chelsea",
-    "ливерпуль": "Liverpool", "манчестер юнайтед": "Manchester United",
-    "манчестер сити": "Manchester City", "тоттенхэм": "Tottenham",
-    "барселона": "Barcelona", "реал мадрид": "Real Madrid",
-    "атлетико мадрид": "Atletico Madrid", "байерн": "Bayern Munich",
-    "байерн мюнхен": "Bayern Munich", "дортмунд": "Borussia Dortmund", "интер": "Inter Milan",
-    "интернационале": "Inter Milan", "милан": "AC Milan",
-    "ювентус": "Juventus", "наполи": "Napoli", "рим": "Roma",
-    "пари сен-жермен": "Paris Saint-Germain", "псж": "Paris Saint-Germain",
-    "лион": "Lyon", "مارسель": "Marseille", "марсель": "Marseille",
-    "лилль": "Lille", "монако": "Monaco",
-    "порту": "Porto", "бенфика": "Benfica",     "спортинг": "Sporting CP",
-    "спортинг кристал": "Sporting Cristal", "спортинг кристал": "Sporting Cristal",
-    "депортиво гарсилассо": "Deportivo Garcilaso",
-    "алианса лима": "Alianza Lima", "университарио": "Universitario de Deportes",
-    "мелгар": "FBC Melgar", "спортинг кристалл": "Sporting Cristal",
-    "ajax": "Ajax", "айакс": "Ajax",
-    "фейеноорд": "Feyenoord",
-    "галатасарай": "Galatasaray", "фенербахче": "Fenerbahce",
-    "црвена звезда": "Crvena Zvezda", "ред звезда": "Crvena Zvezda",
-    "динамо загреб": "Dinamo Zagreb",
-    # Eredivisie
-    "аякс": "Ajax", "псв": "PSV", "аз": "AZ",
-    "твенте": "Twente", "утрехт": "Utrecht",
-    # Primeira Liga
-    "бенфика": "Benfica", "порту": "Porto", "спортинг": "Sporting CP",
-    "брага": "Braga",
-    # Süper Lig
-    "галатасарай": "Galatasaray", "фенербахче": "Fenerbahce",
-    "бешикташ": "Besiktas", "трабзонспор": "Trabzonspor",
-    # Belgian Pro League
-    "брюгге": "Club Brugge", "андерлехт": "Anderlecht",
-    "генк": "Genk",
+    # ══════════════════════════════════════════════════════════════════════════
     # Championship
+    # ══════════════════════════════════════════════════════════════════════════
     "лидерс": "Leicester", "лидс": "Leeds", "бернли": "Burnley",
     "сандерленд": "Sunderland", "уэст бром": "West Brom",
     "мидлсбро": "Middlesbrough", "ковентри": "Coventry",
     "норвич": "Norwich", "уотфорд": "Watford",
-    # More national teams
-    "сборная nederland": "Netherlands", "нидерланды": "Netherlands",
-    "сборная бельгии": "Belgium", "бельгия": "Belgium",
-    "сборная хорватии": "Croatia", "хорватия": "Croatia",
-    "сборная чехии": "Czech Republic", "чехия": "Czech Republic",
-    "сборная дании": "Denmark", "дания": "Denmark",
-    "сборная швеции": "Sweden", "швеция": "Sweden",
-    "сборная норвегии": "Norway", "норвегия": "Norway",
-    "сборная польши": "Poland", "польша": "Poland",
-    "сборная румынии": "Romania", "румыния": "Romania",
-    "сборная сербии": "Serbia", "сербия": "Serbia",
-    "сборная шотландии": "Scotland", "шотландия": "Scotland",
-    "сборная австрии": "Austria", "австрия": "Austria",
-    "сборная турции": "Turkey", "турция": "Turkey",
-    "сборная венгрии": "Hungary", "венгрия": "Hungary",
-    "сборная словакии": "Slovakia", "словакия": "Slovakia",
-    "сборная словении": "Slovenia", "словения": "Slovenia",
-    "сборная финляндии": "Finland", "финляндия": "Finland",
-    "сборная исландии": "Iceland", "исландия": "Iceland",
-    "сборная уэльса": "Wales", "уэльс": "Wales",
+    # ══════════════════════════════════════════════════════════════════════════
+    # MLS
+    # ══════════════════════════════════════════════════════════════════════════
+    "Интер Майами": "Inter Miami", "inter miami": "Inter Miami",
+    "Лос-Анджелес Гэлакси": "LA Galaxy", "la galaxy": "LA Galaxy",
+    "Атланта Юнайтед": "Atlanta United",
+    "СиATTLE Саундерс": "Seattle Sounders",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Brasileirão
+    # ══════════════════════════════════════════════════════════════════════════
+    "фламенго": "Flamengo", "palmeiras": "Palmeiras", "палмейрас": "Palmeiras",
+    "Corinthians": "Corinthians", "коринтианс": "Corinthians",
+    "Sao Paulo": "Sao Paulo", "san-Паулу": "Sao Paulo",
+    "Internacional": "Internacional", "интернасьонал": "Internacional",
+    "Гремио": "Gremio", "gremio": "Gremio",
+    "Fluminense": "Fluminense", "флуминенсе": "Fluminense",
+    "Botafogo": "Botafogo", "ботафого": "Botafogo",
+    "Васко да Гама": "Vasco da Gama", "vasco": "Vasco da Gama",
+    "Атлетико Минейро": "Atletico Mineiro",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Argentine Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Бока жуниорс": "Boca Juniors", "boca juniors": "Boca Juniors",
+    "Ривер Плейт": "River Plate", "river plate": "River Plate",
+    "Расинг": "Racing Club", "Расинг Клуб": "Racing Club",
+    "Сан-Лоренсо": "San Lorenzo", "san lorenzo": "San Lorenzo",
+    "Эстудиантес": "Estudiantes", "estudiantes": "Estudiantes",
+    "Велес Сарсфилд": "Velez Sarsfield",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Colombian Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Атлетико Насьональ": "Atletico Nacional",
+    "Мильонариос": "Millonarios",
+    "Санта-Фе": "Independiente Santa Fe",
+    "Депортиво Кали": "Deportivo Cali",
+    "Америка де Кали": "America de Cali",
+    "Спортинг Кристал": "Sporting Cristal", "спортинг кристал": "Sporting Cristal",
+    "Депортиво Гарсилассо": "Deportivo Garcilaso", "депортиво гарсилассо": "Deportivo Garcilaso",
+    "Алианса Лима": "Alianza Lima", "алианса лима": "Alianza Lima",
+    "Университарио": "Universitario de Deportes", "университарио": "Universitario de Deportes",
+    "Мелгар": "FBC Melgar", "мелгар": "FBC Melgar",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Ukrainian Premier League
+    # ══════════════════════════════════════════════════════════════════════════
+    "шахтёр": "Shakhtar Donetsk", "шахтёр донецк": "Shakhtar Donetsk",
+    "динамо киев": "Dynamo Kyiv", "динамо київ": "Dynamo Kyiv",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Kazakhstan
+    # ══════════════════════════════════════════════════════════════════════════
+    "каират": "Kairat Almaty", "астана": "FC Astana",
+    "ордабасы": "Ordabasy", "актобе": "Aktobe",
+    "тобол": "FK Tobol Kostanay",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Azerbaijan
+    # ══════════════════════════════════════════════════════════════════════════
+    "карабах": "Qarabag", "карабаг": "Qarabag",
+    "нефтчи": "Neftchi Baku",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Iceland
+    # ══════════════════════════════════════════════════════════════════════════
+    "филкир": "Fylkir Reykjavik", "филкир рейкьявик": "Fylkir Reykjavik",
+    "ньярдвик": "Njardvik", "ньярдвинк": "Njardvik",
+    "валюр": "Valur Reykjavik", "рейкьявик": "Reykjavik",
+    "викингур": "Vikingur Reykjavik",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Ireland
+    # ══════════════════════════════════════════════════════════════════════════
+    "дерри": "Derry City", "шемрок роверс": "Shamrock Rovers",
+    "даун": "Dundalk", "далки": "Dundalk",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Bulgaria
+    # ══════════════════════════════════════════════════════════════════════════
+    "цска софия": "CSKA Sofia", "левски": "Levski Sofia",
+    "лудогорец": "Ludogorets", "славия": "Slavia Sofia",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Belarus
+    # ══════════════════════════════════════════════════════════════════════════
+    "батэ": "BATE Borisov", "динамо минск": "Dynamo Minsk",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Swiss Super League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Базель": "Basel", "базель": "Basel",
+    "Янг Бойз": "Young Boys", "Young Boys": "Young Boys",
+    "Люцерн": "Luzern", "Цюрих": "Zurich",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Austrian Bundesliga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Рапид Вена": "Rapid Wien", "Ред Булл Зальцбург": "RB Salzburg",
+    "Штурм": "Sturm Graz", "Аустрия Вена": "Austria Wien",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Greek Super League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Олимпиакос": "Olympiacos", "Панатинаикос": "Panathinaikos",
+    "АЕК Афины": "AEK Athens", "ПАОК": "PAOK",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Scottish Premiership
+    # ══════════════════════════════════════════════════════════════════════════
+    "Селтик": "Celtic", "Рейнджерс": "Rangers",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Serbian SuperLiga
+    # ══════════════════════════════════════════════════════════════════════════
+    "црвена звезда": "Crvena Zvezda", "ред звезда": "Crvena Zvezda",
+    "партизан": "Partizan Belgrade",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Croatian HNL
+    # ══════════════════════════════════════════════════════════════════════════
+    "динамо загреб": "Dinamo Zagreb", "хайдук": "Hajduk Split",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Mexican Liga MX
+    # ══════════════════════════════════════════════════════════════════════════
+    "Америка": "Club America", "Крус Асуль": "Cruz Azul",
+    "УНАМ Пумас": "UNAM Pumas", "Гвадалахара": "Guadalajara",
+    "Тигрес": "Tigres UANL", "Монтеррей": "Monterrey",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Japanese J-League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Урава Ред Даймондс": "Urawa Red Diamonds",
+    "Касима Антлерс": "Kashima Antlers",
+    "Иокогама Ф. Маринос": "Yokohama F. Marinos",
+    "Фронтале": "Kawasaki Frontale",
+    "Виссел Кобе": "Vissel Kobe",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Korean K-League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Чонбук Хёндэ Моторс": "Jeonbuk Hyundai Motors",
+    "Ульсан Хёндэ": "Ulsan HD",
+    "Сеул": "FC Seoul",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Chinese Super League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Шанхай СИПГ": "Shanghai SIPG", "Гуанчжоу Эвергранде": "Guangzhou Evergrande",
+    "Бэйцзин Гоань": "Beijing Guoan",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Australian A-League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Мельбурн Виктория": "Melbourne Victory",
+    "Сидней": "Sydney FC",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Indian Super League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Атлетико де Калькутта": "ATK Mohun Bagan",
+    "Мумбаи Сити": "Mumbai City",
+    # ══════════════════════════════════════════════════════════════════════════
+    # South African Premier Soccer League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Кайзер Чифс": "Kaizer Chiefs", "Орландо Пайрэтс": "Orlando Pirates",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Egyptian Premier League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Аль-Ахли": "Al Ahly", "Аль-Ахли": "Al Ahly",
+    "Замалек": "Zamalek",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Romanian Liga I
+    # ══════════════════════════════════════════════════════════════════════════
+    "Стяуа": "FCSB", "ФКСБ": "FCSB",
+    "Рапид Бухарест": "Rapid Bucuresti",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Czech Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Славия Прага": "Slavia Prague", "Спарта Прага": "Sparta Prague",
+    "Пльзень": "Viktoria Plzen",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Polish Ekstraklasa
+    # ══════════════════════════════════════════════════════════════════════════
+    "Лех Познань": "Lech Poznan", "Легия": "Legia Warsaw",
+    "Ракув": "Rakow Czestochowa",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Danish Superliga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Копенгаген": "FC Copenhagen", "Мидтьюлланн": "Midtjylland",
+    "Брондбю": "Brondby",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Swedish Allsvenskan
+    # ══════════════════════════════════════════════════════════════════════════
+    "Мальме": "Malmo FF", "AIK": "AIK",
+    "Хаммарбю": "Hammarby", "Гётеборг": "IFK Goteborg",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Norwegian Eliteserien
+    # ══════════════════════════════════════════════════════════════════════════
+    "Будё-Глимт": "Bodo/Glimt", "Русенборг": "Rosenborg",
+    "Молльде": "Molde",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Finnish Veikkausliiga
+    # ══════════════════════════════════════════════════════════════════════════
+    "ХИК": "HJK Helsinki", "ХИК Хельсинки": "HJK Helsinki",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Belgian Pro League
+    # ══════════════════════════════════════════════════════════════════════════
+    "брюгге": "Club Brugge", "андерлехт": "Anderlecht",
+    "генк": "Genk", "Андерлехт": "Anderlecht",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Bulgarian First League
+    # ══════════════════════════════════════════════════════════════════════════
+    "цска софия": "CSKA Sofia", "левски софия": "Levski Sofia",
+    "лудогорец": "Ludogorets", "славия софия": "Slavia Sofia",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Georgian Erovnuli Liga
+    # ══════════════════════════════════════════════════════════════════════════
+    "Динамо Тбилиси": "Dinamo Tbilisi", "Динамо Тбилиси": "Dinamo Tbilisi",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Armenian Premier League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Пюник": "Pyunik Yerevan", "Арарат": "Ararat-Armenia",
+    # ══════════════════════════════════════════════════════════════════════════
+    # Uzbekistan Super League
+    # ══════════════════════════════════════════════════════════════════════════
+    "Пахтакор": "Pakhtakor", "Бунёдкор": "Bunyodkor",
 }
 
 
