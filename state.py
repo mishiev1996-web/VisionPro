@@ -93,9 +93,10 @@ def load_model():
 
 def load_tennis_model():
     global TENNIS_MODEL
-    if os.path.exists("tennis_model.pkl"):
-        TENNIS_MODEL = joblib.load("tennis_model.pkl")
-        logger.info("Tennis model loaded from tennis_model.pkl")
+    tennis_model_path = os.path.join("tennis", "tennis_model.pkl")
+    if os.path.exists(tennis_model_path):
+        TENNIS_MODEL = joblib.load(tennis_model_path)
+        logger.info("Tennis model loaded from tennis/tennis_model.pkl")
     else:
         TENNIS_MODEL = None
-        logger.warning("No tennis_model.pkl — run 'python tennis_trainer.py' to train")
+        logger.warning("No tennis/tennis_model.pkl — run 'python -m tennis.tennis_trainer' to train")

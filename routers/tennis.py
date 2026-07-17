@@ -10,9 +10,9 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-import tennis_db
-import tennis_collector
-import tennis_ai
+import tennis.tennis_db as tennis_db
+import tennis.tennis_collector as tennis_collector
+import tennis.tennis_ai as tennis_ai
 import state as _state
 from state import JOB
 

@@ -7,7 +7,11 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import joblib
 import numpy as np
@@ -16,10 +20,10 @@ from lightgbm import LGBMClassifier
 from sklearn.metrics import accuracy_score, classification_report, log_loss
 from xgboost import XGBClassifier
 
-import tennis_db
+import tennis.tennis_db as tennis_db
 
 
-MODEL_PATH = "tennis_model.pkl"
+MODEL_PATH = str(Path(__file__).parent / "tennis_model.pkl")
 MIN_MATCHES_FOR_TRAINING = 1000
 SAMPLE_SIZE = 50000  # Use subset for speed
 

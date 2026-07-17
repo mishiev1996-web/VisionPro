@@ -13,6 +13,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, List, Dict, Any, Optional, Tuple
 
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import TENNIS_DB_PATH
 
 SCHEMA = """

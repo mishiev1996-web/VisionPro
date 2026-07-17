@@ -9,7 +9,11 @@ Combines:
 from __future__ import annotations
 
 import datetime as dt
+from pathlib import Path
 from typing import Dict, List, Optional
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def fetch_tennis_upcoming() -> List[Dict]:
@@ -155,7 +159,7 @@ def fetch_player_profile(player_name: str) -> Dict:
 
     # Try local DB
     try:
-        import tennis_db
+        import tennis.tennis_db as tennis_db
         db_results = tennis_db.search_player(player_name, limit=1)
         if db_results:
             p = db_results[0]

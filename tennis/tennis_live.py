@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import requests
 
 import config
-import tennis_db
+import tennis.tennis_db as tennis_db
 
 logger = logging.getLogger("tennis_live")
 

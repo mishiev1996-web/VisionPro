@@ -10,12 +10,16 @@ import datetime as dt
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ai_core import chat as _chat, get_api_key as _get_api_key, parse_prob_line
 
 import config
-import tennis_db
+import tennis.tennis_db as tennis_db
 
 logger = logging.getLogger("tennis_ai")
 
@@ -392,13 +396,14 @@ def search_and_analyze(player1_name: str, player2_name: str,
     ml_prediction = None
     try:
         import os
-        if os.path.exists("tennis_model.pkl"):
+        tennis_model_path = os.path.join(os.path.dirname(__file__), "tennis_model.pkl")
+        if os.path.exists(tennis_model_path):
             import joblib
             import pandas as pd
             import numpy as np
-            from tennis_trainer import build_features_fast, _build_player_stats, _build_ranking_lookup, _build_h2h, _build_form
+            from tennis.tennis_trainer import build_features_fast, _build_player_stats, _build_ranking_lookup, _build_h2h, _build_form
 
-            tennis_model = joblib.load("tennis_model.pkl")
+            tennis_model = joblib.load(tennis_model_path)
             all_matches = tennis_db.all_finished_matches()
 
             player_stats = _build_player_stats(all_matches)

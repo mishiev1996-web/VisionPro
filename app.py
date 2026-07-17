@@ -31,7 +31,7 @@ except Exception:
 
 import db
 import config
-import tennis_db
+import tennis.tennis_db as tennis_db
 import data_collector
 from state import JOB, MODEL, load_model, load_tennis_model
 
