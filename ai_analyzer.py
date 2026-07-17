@@ -1151,7 +1151,7 @@ def _resolve_team_name(name: str) -> str:
 
 
 def _search_sstats_team(team_name: str, progress_cb=None,
-                        max_seconds: float = 10.0) -> Optional[dict]:
+                        max_seconds: float = 60.0) -> Optional[dict]:
     """Search sstats.net for a team by name, save their match history to DB.
 
     Phase 1: Search our 18 configured leagues (fast).
@@ -1180,11 +1180,11 @@ def _search_sstats_team(team_name: str, progress_cb=None,
                     order="Date DESC",
                 )
             except Exception:
-                _time.sleep(2)
+                _time.sleep(0.5)
                 continue
 
             if not results:
-                _time.sleep(0.3)
+                _time.sleep(0.1)
                 continue
 
             for match in results:
