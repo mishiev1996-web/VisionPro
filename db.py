@@ -620,16 +620,18 @@ def get_team(team_id: int) -> Optional[Dict[str, Any]]:
 def search_team_fuzzy(name: str, limit: int = 5) -> List[Dict[str, Any]]:
     q = name.strip().lower()
     with connect() as conn:
+        # Find teams matching name, then prioritize by match count
         rows = conn.execute(
-            "SELECT id, name, short_name, league_slug FROM teams "
-            "WHERE LOWER(name) LIKE ? OR LOWER(short_name) LIKE ? "
-            "ORDER BY "
-            "  CASE WHEN LOWER(name)=? THEN 0 "
-            "       WHEN LOWER(name) LIKE ? THEN 1 "
-            "       WHEN LOWER(short_name)=? THEN 2 "
+            "SELECT t.id, t.name, t.short_name, t.league_slug, "
+            "  (SELECT COUNT(*) FROM matches WHERE (home_id=t.id OR away_id=t.id) AND is_result=1) as match_count "
+            "FROM teams t "
+            "WHERE LOWER(t.name) LIKE ? OR LOWER(t.short_name) LIKE ? "
+            "ORDER BY match_count DESC, "
+            "  CASE WHEN LOWER(t.name)=? THEN 0 "
+            "       WHEN LOWER(t.name) LIKE ? THEN 1 "
             "       ELSE 3 END, "
-            "  name LIMIT ?",
-            (f"%{q}%", f"%{q}%", q, f"{q}%", q, int(limit)),
+            "  t.name LIMIT ?",
+            (f"%{q}%", f"%{q}%", q, f"{q}%", int(limit)),
         ).fetchall()
         return [dict(r) for r in rows]
 
