@@ -321,6 +321,19 @@ def init_db() -> None:
             _migrate(conn)
         conn.executescript(SCHEMA)
 
+        # Auto-init bankroll settings if empty
+        has_settings = conn.execute("SELECT COUNT(*) FROM bankroll_settings").fetchone()[0]
+        if not has_settings:
+            now = dt.datetime.now().isoformat(timespec="seconds")
+            conn.execute(
+                "INSERT INTO bankroll_settings (id, max_bet_pct, min_odds, kelly_fraction, updated_at) "
+                "VALUES (1, 5.0, 1.5, 0.25, ?)", (now,)
+            )
+            # Start with 0 balance — user sets it via UI
+            conn.execute(
+                "INSERT INTO bankroll (balance, currency, updated_at) VALUES (0, 'RUB', ?)", (now,)
+            )
+
 
 def _migrate(conn: sqlite3.Connection) -> None:
     """Apply incremental schema migrations to existing databases."""
