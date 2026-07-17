@@ -33,6 +33,9 @@ for m in matches:
     surface, date = m[3] or 'hard', m[4]
     p1_rank, p2_rank = m[19], m[20]
 
+    # Serve stats: w_1stIn(7), w_svpt(8), w_1stWon(9), w_2ndWon(10), w_bpSaved(11), w_bpFaced(12)
+    #              l_1stIn(13), l_svpt(14), l_1stWon(15), l_2ndWon(16), l_bpSaved(17), l_bpFaced(18)
+
     # Get features BEFORE updating
     feats = engine.get_features(p1_id, p2_id, surface, p1_rank, p2_rank, date)
     label = 1 if winner_id == p1_id else 0
@@ -41,11 +44,39 @@ for m in matches:
     # Determine winner/loser
     if winner_id == p1_id:
         w_id, l_id = p1_id, p2_id
+        w_prefix, l_prefix = 7, 13  # indices for winner/loser serve stats
     else:
         w_id, l_id = p2_id, p1_id
+        w_prefix, l_prefix = 13, 7  # swapped
 
-    # Update engine
-    engine.update(w_id, l_id, surface, date)
+    # Build serve stats for winner and loser
+    def _to_f(v):
+        try:
+            return float(v) if v is not None else 0.0
+        except:
+            return 0.0
+
+    def _srv_pct(svpt, won):
+        s, w = _to_f(svpt), _to_f(won)
+        return w / s * 100 if s > 0 else 50.0
+
+    def _bp_pct(saved, faced):
+        s, f = _to_f(saved), _to_f(faced)
+        return s / f * 100 if f > 0 else 50.0
+
+    w_stats = {
+        "1stWon": _srv_pct(m[w_prefix + 1], m[w_prefix + 2]),
+        "2ndWon": _srv_pct(_to_f(m[w_prefix + 1]) - _to_f(m[w_prefix + 0]), m[w_prefix + 3]),
+        "bpSaved": _bp_pct(m[w_prefix + 4], m[w_prefix + 5]),
+    }
+    l_stats = {
+        "1stWon": _srv_pct(m[l_prefix + 1], m[l_prefix + 2]),
+        "2ndWon": _srv_pct(_to_f(m[l_prefix + 1]) - _to_f(m[l_prefix + 0]), m[l_prefix + 3]),
+        "bpSaved": _bp_pct(m[l_prefix + 4], m[l_prefix + 5]),
+    }
+
+    # Update engine WITH serve stats
+    engine.update(w_id, l_id, surface, date, serve_stats={w_id: w_stats, l_id: l_stats})
 
 df = pd.DataFrame(rows)
 df['date'] = pd.to_datetime(df['date'], errors='coerce')
