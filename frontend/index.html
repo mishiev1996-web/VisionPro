@@ -754,6 +754,56 @@ async function speak(text){
   }catch(e){console.error('TTS error:',e)}
 }
 
+function generateVoiceSummary(data){
+  if(!data)return '';
+  const home=data.home?.name||data.home||'';
+  const away=data.away?.name||data.away||'';
+  if(!home||!away)return '';
+
+  // Try to extract probabilities from prediction
+  let hp=null,dp=null,ap=null;
+  if(data.prediction?.probabilities){
+    hp=data.prediction.probabilities.home_win;
+    dp=data.prediction.probabilities.draw;
+    ap=data.prediction.probabilities.away_win;
+  }
+
+  // Try to extract main bet from analysis text
+  let bet='',conf='';
+  const analysis=data.analysis||'';
+  const probMatch=analysis.match(/PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+):bet=([^:]+):confidence=([^\s]+)/);
+  if(probMatch){
+    hp=parseFloat(probMatch[1])*100;
+    dp=parseFloat(probMatch[2])*100;
+    ap=parseFloat(probMatch[3])*100;
+    bet=probMatch[4];
+    conf=probMatch[5];
+  }
+
+  if(hp===null||dp===null||ap===null)return '';
+
+  // Russian bet labels
+  const betLabel=bet==='home'?'победа хозяев':bet==='draw'?'ничья':bet==='away'?'победа гостей':'';
+  const confLabel=conf==='HIGH'?'высокая':conf==='MEDIUM'?'средняя':'';
+
+  let summary=`Матч ${home} против ${away}. `;
+  summary+=`Вероятности: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+  if(betLabel){
+    summary+=`Рекомендую ставку: ${betLabel}`;
+    if(confLabel)summary+=`, уверенность ${confLabel}`;
+    summary+='. ';
+  }
+
+  // Short analysis excerpt (first 150 chars after PROB:)
+  const afterProb=analysis.indexOf('PROB:');
+  if(afterProb>=0){
+    const excerpt=analysis.substring(afterProb+60,afterProb+210).replace(/\n/g,' ').trim();
+    if(excerpt.length>20)summary+=excerpt+' ';
+  }
+
+  return summary.trim();
+}
+
 // ── Theme ──
 function toggleTheme(){
   const h=document.documentElement;
@@ -1051,9 +1101,22 @@ async function runAnalysis(){
     setProgress(100,'Готово!','Этап 4/4');
     if(!r.ok)throw new Error('HTTP '+r.status);
     const data=await r.json();
-    setTimeout(()=>renderAnalysisResult(data),300);
+    setTimeout(()=>{
+      renderAnalysisResult(data);
+      // Speak result if triggered by voice
+      if(_voiceTriggered){
+        _voiceTriggered=false;
+        const summary=generateVoiceSummary(data);
+        if(summary){
+          const vh=document.getElementById('voice-hint');
+          if(vh){vh.textContent='Озвучиваю...';vh.style.color='#d4af37';vh.classList.add('active')}
+          speak(summary);
+        }
+      }
+    },300);
   }catch(e){
     clearInterval(progressInterval);
+    _voiceTriggered=false;
     let errorMsg=e.message;
     if(errorMsg.includes('abort'))errorMsg='Превышен таймаут (3 мин). Попробуйте позже.';
     document.getElementById('ai-result').innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);margin-top:16px"><div style="color:var(--red);padding:8px 0;font-size:14px">Ошибка: '+errorMsg+'</div></div>';
@@ -1312,6 +1375,7 @@ function translateBet(t){
 // ── Voice Input (hold to record) ──
 let _voiceRecognition=null;
 let _voiceListening=false;
+let _voiceTriggered=false; // true if analysis was triggered by voice → speak result
 
 // Init hold-to-record on voice button
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1399,7 +1463,7 @@ function parseVoiceInput(text){
   text=text.trim().toLowerCase();
 
   // Убираем обращения и шаблонные фразы
-  text=text.replace(/виж[её]н|вижион|прогноз|прогнозируй|дай|скажи|назови|покажи|проанализируй|матч|игру| المباراة/gi,'').trim();
+  text=text.replace(/виж[её]н|вижион|прогноз|прогнозируй|дай|скажи|назови|покажи|проанализируй|матч|игру| המשחק|ставк[уи]|на матч|как сыграют|как играют/gi,'').trim();
 
   // Ищем разделители: против, vs, - , — , , , playing, versus, и
   const separators=['против','vs','versus','playing','-','—',','];
@@ -1429,6 +1493,14 @@ function parseVoiceInput(text){
     }
   }
 
+  // Паттерн: "прогноз X Y" (два слова после очистки)
+  if(!parts){
+    const words=text.split(/\s+/).filter(w=>w.length>1);
+    if(words.length===2){
+      parts=[words[0],words[1]];
+    }
+  }
+
   // Fallback: делим пополам
   if(!parts){
     const words=text.split(/\s+/).filter(w=>w.length>1);
@@ -1447,6 +1519,7 @@ function parseVoiceInput(text){
     hint.textContent=home+' vs '+away;
     hint.style.color='#d4af37';
 
+    _voiceTriggered=true;
     setTimeout(()=>runAnalysis(),500);
   }else{
     hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';

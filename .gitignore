@@ -1,6 +1,7 @@
 model.pkl
 tennis_model.pkl
 data/
+база для обучения/
 __pycache__/
 *.pyc
 *.log
