@@ -949,12 +949,11 @@ TEAM_NAME_MAP = {
     "кара́бах": "Qarabag", "карабах": "Qarabag", "карабаг": "Qarabag",
     "нефтчи": "Neftchi Baku", "нефтяник": "Neftchi Baku",
     "сумгаит": "Sumqayit", "сумгайыт": "Sumqayit",
-    # Iceland
-    "вестри": "Vestri", "весьтр": "Vestri",
-    "киа": "Knattspyrnufélagið Keflavík", "кейлаувик": "Knattspyrnufélagið Keflavíк",
-    "валюр": "Valur", "реykьявик": "Valur",
-    "хабнарфьордюр": "Hafnarfjordur", "хабнарфьордур": "Hafnarfjordur",
-    "рейкьявик": "Valur", "акурейри": "Akureyri",
+    # Iceland (club teams - not in DB, will show "no data")
+    "филкир": "Fylkir Reykjavik", "филкир рейкьявик": "Fylkir Reykjavik",
+    "ньярдвик": "Njardvik", "ньярдвинк": "Njardvik",
+    "валюр": "Valur Reykjavik", "рейкьявик": "Reykjavik",
+    "вакин": "Vikingur Reykjavik", "викингур": "Vikingur Reykjavik",
     # Ireland
     "дерри сити": "Derry City", "дерри": "Derry City",
     "шемрок роверс": "Shamrock Rovers",
