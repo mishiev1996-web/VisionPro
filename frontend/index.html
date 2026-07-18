@@ -73,6 +73,10 @@ body::after{content:"";position:fixed;z-index:-1;bottom:0;right:0;width:50vmax;h
 .wrap{max-width:560px;margin:0 auto;padding:0 16px calc(100px + env(safe-area-inset-bottom,0px));position:relative;z-index:1}
 .hide{display:none!important}
 
+/* Pane crossfade animation */
+@keyframes paneFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.pane-enter{animation:paneFadeIn .35s var(--ease) both}
+
 /* Smooth transitions for all interactive elements */
 *{transition-property:color,background-color,border-color,box-shadow,opacity,transform;transition-duration:0.2s;transition-timing-function:var(--ease)}
 button,.btn,.match-card,.card,.glass-card,.prob-item,.sport-btn,.theme-btn,.ac .item{-webkit-tap-highlight-color:transparent}
@@ -83,10 +87,6 @@ button,.btn,.match-card,.card,.glass-card,.prob-item,.sport-btn,.theme-btn,.ac .
 /* Better focus states */
 .inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(16,185,129,.15);transition:all .3s var(--spring)}
 select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
-
-/* Card hover lift */
-.card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.2)}
-.match-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.25)}
 @keyframes heroUp{from{opacity:0;transform:translateY(34px) scale(.97);filter:blur(8px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
 @keyframes rise{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
 
@@ -140,8 +140,12 @@ nav.tabs button.active{color:var(--cyan)}
 nav.tabs button.active svg{transform:scale(1.08) translateY(-1px)}
 
 /* Cards */
-.card{background:var(--surface);border:1px solid var(--cardborder);border-radius:20px;box-shadow:var(--surfshadow);padding:20px;margin-top:14px;animation:rise .7s var(--ease) both;position:relative}
+.card{background:var(--surface);border:1px solid var(--cardborder);border-radius:20px;box-shadow:var(--surfshadow);padding:20px;margin-top:14px;animation:rise .7s var(--ease) both;position:relative;transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.2)}
 .card-t{font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--ink2);text-transform:uppercase;margin:0 6px 2px}
+
+/* Error card — unified */
+.error-card{background:var(--surface);border:1px solid rgba(255,69,58,.2);border-radius:20px;padding:20px;margin-top:14px;color:var(--red);animation:rise .4s var(--ease) both}
 
 /* Inputs */
 .inp,.inp[type="text"],select.inp{width:100%;background:var(--inpbg);border:1px solid var(--line);border-radius:12px;padding:13px 14px;font-size:16px;color:var(--ink);outline:none;font-family:inherit;transition:border-color .25s var(--ease),box-shadow .25s var(--ease);appearance:none;-webkit-appearance:none}
@@ -172,8 +176,8 @@ label.fld{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:
 .vs-divider{flex:none;width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--cardborder);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink3)}
 
 /* Match cards */
-.match-card{background:var(--card);border:1px solid var(--cardborder);border-radius:20px;padding:18px;margin-top:12px;cursor:pointer;transition:all .25s var(--ease);animation:rise .7s var(--ease) both;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-.match-card:hover{border-color:rgba(16,185,129,.3);transform:translateY(-1px);box-shadow:0 4px 20px rgba(16,185,129,.15),0 2px 8px rgba(0,0,0,.12)}
+.match-card{background:var(--card);border:1px solid var(--cardborder);border-radius:20px;padding:18px;margin-top:12px;cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s var(--ease);animation:rise .7s var(--ease) both;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.match-card:hover{border-color:rgba(16,185,129,.3);transform:translateY(-2px);box-shadow:0 4px 20px rgba(16,185,129,.15),0 2px 8px rgba(0,0,0,.12)}
 .match-card:active{transform:scale(.98)}
 .mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .mc-league{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
@@ -373,6 +377,13 @@ label.fld{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:
 .mc:nth-child(7){animation-delay:.35s}.mc:nth-child(8){animation-delay:.4s}.mc:nth-child(9){animation-delay:.45s}
 .mc:nth-child(10){animation-delay:.5s}
 
+/* Card stagger in lists */
+.card-stagger>.card:nth-child(1){animation-delay:.05s}
+.card-stagger>.card:nth-child(2){animation-delay:.1s}
+.card-stagger>.card:nth-child(3){animation-delay:.15s}
+.card-stagger>.card:nth-child(4){animation-delay:.2s}
+.card-stagger>.card:nth-child(5){animation-delay:.25s}
+
 /* ── 2. Animated nav indicator ── */
 nav.tabs{overflow:hidden}
 nav.tabs button{position:relative}
@@ -405,8 +416,8 @@ nav.tabs button:not(.active)::after{width:0;left:50%}
 .conf-gauge-label{font-size:10px;font-weight:600;min-width:80px;text-align:right}
 
 /* ── 7. Gradient border on hover ── */
-.mc{transition:all .25s var(--ease),box-shadow .25s var(--ease)}
-.mc:hover{border-image:linear-gradient(135deg,var(--cyan),var(--violet)) 1;border-image-slice:1}
+.mc{transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s var(--ease)}
+.mc:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(16,185,129,.12)}
 
 /* ── 8. Analysis typography ── */
 .analysis{font-size:14px;line-height:1.75;color:var(--ink2)}
@@ -458,10 +469,23 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 .skeleton-score{height:20px;width:60px;border-radius:8px;background:var(--line);margin:0 auto}
 
 @media(max-width:600px){.wrap{padding:0 12px calc(100px + env(safe-area-inset-bottom,0px))}.prob-item .value{font-size:20px}.hero-title{font-size:clamp(28px,9vw,38px)}.live-score{font-size:26px}}
+
+/* Offline banner */
+.offline-banner{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(255,59,48,.92);color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:600;backdrop-filter:blur(8px);transform:translateY(-100%);transition:transform .3s var(--ease)}
+.offline-banner.show{transform:translateY(0)}
+
+/* Live updated indicator */
+.live-updated{font-size:10px;color:var(--ink3);text-align:right;padding:4px 0;display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.live-updated .dot-refresh{width:6px;height:6px;border-radius:50%;background:var(--cyan);display:inline-block}
+.live-update-error{color:var(--red);font-weight:600}
+
+/* Score draw glow */
+.score-glow-draw{color:var(--amber);text-shadow:0 0 12px rgba(255,214,10,.3)}
 </style>
 </head>
 <body>
 <div class="golden-particles" id="goldenParticles"></div>
+<div class="offline-banner" id="offline-banner">Нет подключения к интернету</div>
 
 <div class="wrap">
   <header>
@@ -574,6 +598,7 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
         <input type="checkbox" id="live-auto-refresh" checked>
         <label for="live-auto-refresh" style="font-size:13px;color:var(--ink2)">Автообновление (30 сек)</label>
       </div>
+      <div class="live-updated"><span class="dot-refresh"></span><span id="live-updated-ts"></span></div>
     </div>
 
     <div id="live-loading" style="display:none"></div>
@@ -760,48 +785,104 @@ function generateVoiceSummary(data){
   const away=data.away?.name||data.away||'';
   if(!home||!away)return '';
 
-  // Try to extract probabilities from prediction
+  const matchType=window._voiceMatchType||'full';
+  const timeCtx=window._voiceTimeContext||'auto';
+
+  // Extract probabilities
   let hp=null,dp=null,ap=null;
-  if(data.prediction?.probabilities){
+  const analysisText=data.analysis||'';
+  const probMatch=analysisText.match(/PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+):bet=([^:]+):confidence=([^\s]+)/);
+  if(probMatch){
+    hp=parseFloat(probMatch[1])*100;
+    dp=parseFloat(probMatch[2])*100;
+    ap=parseFloat(probMatch[3])*100;
+  }else if(data.prediction?.probabilities){
     hp=data.prediction.probabilities.home_win;
     dp=data.prediction.probabilities.draw;
     ap=data.prediction.probabilities.away_win;
   }
 
-  // Try to extract main bet from analysis text
+  // Check if match is live
+  const isLive=!!data.current_score;
+  const score=data.current_score||'';
+
+  // Extract main bet
   let bet='',conf='';
-  const analysis=data.analysis||'';
-  const probMatch=analysis.match(/PROB:home=([\d.]+):draw=([\d.]+):away=([\d.]+):bet=([^:]+):confidence=([^\s]+)/);
-  if(probMatch){
-    hp=parseFloat(probMatch[1])*100;
-    dp=parseFloat(probMatch[2])*100;
-    ap=parseFloat(probMatch[3])*100;
-    bet=probMatch[4];
-    conf=probMatch[5];
+  if(probMatch){bet=probMatch[4];conf=probMatch[5]}
+
+  const betLabel={'home':'победа хозяев','draw':'ничья','away':'победа гостей'}[bet]||bet;
+  const confLabel={'HIGH':'уверенная','MEDIUM':'средняя','LOW':'низкая','VERY_LOW':'осторожная'}[conf]||conf;
+
+  // ── Conversational opener ──
+  const openers=[
+    'Слушай, ',
+    'Окей, ',
+    'Так-так, ',
+    'Давай разберём, ',
+    'Хороший матч выбрал, ',
+    'Ооо, ',
+  ];
+  let s=openers[Math.floor(Math.random()*openers.length)];
+
+  // ── Live match response ──
+  if(isLive){
+    s+=`матч ${home} против ${away} уже идёт, счёт ${score}. `;
+    if(hp!==null){
+      // Assess current situation
+      const total=hp+dp+ap;
+      if(total>0){
+        const fav=hp>ap?home:hp<ap?away:'';
+        if(fav)s+=`Пока больше шансов у ${fav}. `;
+        s+=`Вероятности: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+      }
+    }
+    if(betLabel)s+=`Мой прогноз: ${betLabel}. `;
+    return s.trim();
   }
 
-  if(hp===null||dp===null||ap===null)return '';
+  // ── First half specific ──
+  if(matchType==='first_half'){
+    s+=`на первый тайм матча ${home} против ${away}. `;
+    if(hp!==null){
+      s+=`На первый тайм шансы такие: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+    }
+    if(betLabel){
+      s+=`Ставлю на ${betLabel}`;
+      if(confLabel)s+=`, уверенность ${confLabel}`;
+      s+='. ';
+    }
+    return s.trim();
+  }
 
-  // Russian bet labels
-  const betLabel=bet==='home'?'победа хозяев':bet==='draw'?'ничья':bet==='away'?'победа гостей':'';
-  const confLabel=conf==='HIGH'?'высокая':conf==='MEDIUM'?'средняя':'';
+  // ── Second half specific ──
+  if(matchType==='second_half'){
+    s+=`на второй тайм матча ${home} против ${away}. `;
+    if(hp!==null){
+      s+=`На второй тайм: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+    }
+    if(betLabel)s+=`Рекомендую: ${betLabel}. `;
+    return s.trim();
+  }
 
-  let summary=`Матч ${home} против ${away}. `;
-  summary+=`Вероятности: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+  // ── Full match response ──
+  s+=`${home} против ${away}. `;
+  if(hp!==null){
+    s+=`Шансы: хозяева ${Math.round(hp)}%, ничья ${Math.round(dp)}%, гости ${Math.round(ap)}%. `;
+  }
   if(betLabel){
-    summary+=`Рекомендую ставку: ${betLabel}`;
-    if(confLabel)summary+=`, уверенность ${confLabel}`;
-    summary+='. ';
+    s+=`Мой выбор — ${betLabel}`;
+    if(confLabel)s+=`, ${confLabel}`;
+    s+='. ';
   }
 
-  // Short analysis excerpt (first 150 chars after PROB:)
-  const afterProb=analysis.indexOf('PROB:');
+  // Short analysis excerpt
+  const afterProb=analysisText.indexOf('PROB:');
   if(afterProb>=0){
-    const excerpt=analysis.substring(afterProb+60,afterProb+210).replace(/\n/g,' ').trim();
-    if(excerpt.length>20)summary+=excerpt+' ';
+    const excerpt=analysisText.substring(afterProb+60,afterProb+210).replace(/\n/g,' ').trim();
+    if(excerpt.length>20)s+=excerpt+' ';
   }
 
-  return summary.trim();
+  return s.trim();
 }
 
 // ── Theme ──
@@ -951,9 +1032,21 @@ async function saveKellySettings(){
 let currentPane='analysis';
 let prematchLoaded=false,liveLoaded=false,predictionsLoaded=false;
 function switchPane(name){
+  const prev=currentPane;
   currentPane=name;
+
+  // Hide all panes instantly
   document.querySelectorAll('[id^="pane-"]').forEach(p=>p.classList.add('hide'));
-  document.getElementById('pane-'+name).classList.remove('hide');
+
+  // Show new pane with fade-in animation
+  const newPane=document.getElementById('pane-'+name);
+  if(newPane){
+    newPane.classList.remove('hide');
+    newPane.classList.remove('pane-enter');
+    void newPane.offsetWidth; // force reflow to restart animation
+    newPane.classList.add('pane-enter');
+  }
+
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
   document.querySelector('nav.tabs button[data-pane="'+name+'"]').classList.add('active');
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1003,30 +1096,34 @@ const aiHome=document.getElementById('ai-home');
 const aiAway=document.getElementById('ai-away');
 
 [aiHome,aiAway].forEach((inp,idx)=>{
-  inp.addEventListener('input',async()=>{
-    const v=inp.value.trim();
-    const ac=document.getElementById(idx===0?'ac-home':'ac-away');
-    if(v.length<2){ac.classList.remove('open');return}
-    try{
-      const endpoint=currentSport==='tennis'?'/api/tennis/search?q=':'/api/ai/search-db?q=';
-      const r=await fetch(endpoint+encodeURIComponent(v));
-      const data=await r.json();
-      const results=data.results||data.players||[];
-      if(!results.length){ac.classList.remove('open');return}
-      const acNames=results.map(t=>t.name||'');
-      await trBatch(acNames);
-      const items=currentSport==='tennis'
-        ?results.map(t=>{
-          const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
-          return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.country||'')+'</span></div>';
-        }).join('')
-        :results.map(t=>{
-          const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
-          return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.league_slug||'')+'</span></div>';
-        }).join('');
-      ac.innerHTML=items;
-      ac.classList.add('open');
-    }catch(e){}
+  let _debounceTimer=null;
+  inp.addEventListener('input',()=>{
+    clearTimeout(_debounceTimer);
+    _debounceTimer=setTimeout(async()=>{
+      const v=inp.value.trim();
+      const ac=document.getElementById(idx===0?'ac-home':'ac-away');
+      if(v.length<2){ac.classList.remove('open');return}
+      try{
+        const endpoint=currentSport==='tennis'?'/api/tennis/search?q=':'/api/ai/search-db?q=';
+        const r=await fetch(endpoint+encodeURIComponent(v));
+        const data=await r.json();
+        const results=data.results||data.players||[];
+        if(!results.length){ac.classList.remove('open');return}
+        const acNames=results.map(t=>t.name||'');
+        await trBatch(acNames);
+        const items=currentSport==='tennis'
+          ?results.map(t=>{
+            const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
+            return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.country||'')+'</span></div>';
+          }).join('')
+          :results.map(t=>{
+            const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
+            return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.league_slug||'')+'</span></div>';
+          }).join('');
+        ac.innerHTML=items;
+        ac.classList.add('open');
+      }catch(e){}
+    },300);
   });
   inp.addEventListener('focus',()=>{document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open')});
 });
@@ -1042,6 +1139,18 @@ aiAway.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=
 
 document.getElementById('ai-btn').addEventListener('click',runAnalysis);
 
+let _analysisSSE=null;
+function _setAnalysisProgress(pct,msg,step){
+  const bar=document.getElementById('ai-bar');
+  const pctEl=document.getElementById('ai-pct');
+  const msgEl=document.getElementById('ai-load-msg');
+  const stepEl=document.getElementById('ai-step');
+  if(bar)bar.style.width=pct+'%';
+  if(pctEl)pctEl.textContent=pct+'%';
+  if(msgEl)msgEl.textContent=msg;
+  if(stepEl)stepEl.textContent=step;
+}
+
 async function runAnalysis(){
   const home=aiHome.value.trim();
   const away=aiAway.value.trim();
@@ -1051,62 +1160,96 @@ async function runAnalysis(){
   document.getElementById('ai-result').innerHTML='';
   document.getElementById('ai-btn').disabled=true;
 
-  const setProgress=(pct,msg,step)=>{
-    const bar=document.getElementById('ai-bar');
-    const pctEl=document.getElementById('ai-pct');
-    const msgEl=document.getElementById('ai-load-msg');
-    const stepEl=document.getElementById('ai-step');
-    if(bar)bar.style.width=pct+'%';
-    if(pctEl)pctEl.textContent=pct+'%';
-    if(msgEl)msgEl.textContent=msg;
-    if(stepEl)stepEl.textContent=step;
-  };
+  _setAnalysisProgress(5,'Поиск команд...','Этап 1/4');
 
-  setProgress(5,'Поиск команд...','Этап 1/4');
-  let progress=5;
-  const progressInterval=setInterval(()=>{
-    if(progress<90){
-      progress+=Math.random()*8;
-      if(progress>90)progress=90;
-      if(progress<25)setProgress(Math.round(progress),'Сбор данных...','Этап 1/4');
-      else if(progress<50)setProgress(Math.round(progress),'Статистика и составы...','Этап 2/4');
-      else if(progress<75)setProgress(Math.round(progress),'AI-анализ...','Этап 3/4');
-      else setProgress(Math.round(progress),'Формирование отчёта...','Этап 4/4');
-    }
-  },1000);
-
-  try{
-    const controller=new AbortController();
-    const timeoutId=setTimeout(()=>controller.abort(),300000);
-
-    let endpoint,body;
-    if(currentSport==='tennis'){
-      endpoint='/api/tennis/ai-and-predict';
+  // Tennis path: still uses synchronous fetch (no SSE endpoint)
+  if(currentSport==='tennis'){
+    try{
       const params=new URLSearchParams({player1:home,player2:away,model:getSelectedModel()});
-      endpoint+='?'+params.toString();
-      body=null;
-    }else{
-      endpoint='/api/ai/search-and-predict';
-      body=JSON.stringify({home_name:home,away_name:away,model:getSelectedModel()});
+      const controller=new AbortController();
+      const timeoutId=setTimeout(()=>controller.abort(),120000);
+      const r=await fetch('/api/tennis/ai-and-predict?'+params.toString(),{signal:controller.signal});
+      clearTimeout(timeoutId);
+      _setAnalysisProgress(100,'Готово!','Этап 4/4');
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const data=await r.json();
+      setTimeout(()=>renderAnalysisResult(data),300);
+    }catch(e){
+      let errorMsg=e.message;
+      if(errorMsg.includes('abort')||errorMsg.includes('timeout'))errorMsg='Превышен таймаут. Попробуйте позже.';
+      document.getElementById('ai-result').innerHTML='<div class="error-card" style="margin-top:16px">Ошибка: '+errorMsg+'</div>';
     }
+    document.getElementById('ai-loading').classList.add('hide');
+    document.getElementById('ai-btn').disabled=false;
+    return;
+  }
 
-    const r=await fetch(endpoint,{
-      method:currentSport==='tennis'?'GET':'POST',
-      headers:currentSport==='tennis'?{}:{'Content-Type':'application/json'},
-      body:body,
-      signal:controller.signal
+  // Football: SSE-based progress via /api/ai/search-and-predict/start + /api/collect/stream
+  try{
+    // 1. Start async analysis job
+    const startR=await fetch('/api/ai/search-and-predict/start',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({home_name:home,away_name:away,model:getSelectedModel()})
     });
-    clearTimeout(timeoutId);
-    clearInterval(progressInterval);
-    setProgress(100,'Готово!','Этап 4/4');
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const data=await r.json();
+    if(startR.status===409){
+      _setAnalysisProgress(0,'Выполняется другой запрос, ожидание...','');
+      document.getElementById('ai-loading').classList.add('hide');
+      document.getElementById('ai-btn').disabled=false;
+      document.getElementById('ai-result').innerHTML='<div class="card" style="border:1px solid rgba(255,214,10,.2);margin-top:16px"><div style="color:var(--amber);padding:8px 0;font-size:14px">Сервер занят другим анализом. Подождите завершения и попробуйте снова.</div></div>';
+      return;
+    }
+    if(!startR.ok)throw new Error('HTTP '+startR.status);
+
+    // 2. Connect to SSE stream for real progress
+    _setAnalysisProgress(10,'Запуск анализа...','Этап 1/4');
+    const result=await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{es.close();reject(new Error('timeout'))},300000);
+      let progressPct=10;
+      let step='Этап 1/4';
+      const es=new EventSource('/api/collect/stream?since=0');
+      _analysisSSE=es;
+      es.onmessage=(e)=>{
+        try{
+          const ev=JSON.parse(e.data);
+          if(ev.type==='info'&&ev.msg){
+            // Map real backend messages to progress stages
+            const msg=ev.msg.toLowerCase();
+            if(msg.includes('распозн')||msg.includes('команд')){progressPct=15;step='Этап 1/4'}
+            else if(msg.includes('поиск')||msg.includes('sstats')){progressPct=30;step='Этап 1/4'}
+            else if(msg.includes('данные')||msg.includes('загруж')){progressPct=45;step='Этап 2/4'}
+            else if(msg.includes('ml')||msg.includes('модел')||msg.includes('прогноз')){progressPct=60;step='Этап 2/4'}
+            else if(msg.includes('ai')||msg.includes('анализ')){progressPct=80;step='Этап 3/4'}
+            else{progressPct=Math.min(progressPct+5,85)}
+            _setAnalysisProgress(Math.round(progressPct),ev.msg,step);
+          }
+          if(ev.type==='result'&&ev.prediction){
+            es.close();clearTimeout(timeout);_analysisSSE=null;
+            _setAnalysisProgress(100,'Готово!','Этап 4/4');
+            resolve(ev.prediction);
+          }
+          if(ev.type==='error'){
+            es.close();clearTimeout(timeout);_analysisSSE=null;
+            reject(new Error(ev.msg||'Ошибка анализа'));
+          }
+          if(ev.type==='done'){
+            es.close();clearTimeout(timeout);_analysisSSE=null;
+            // Try to get result from status endpoint
+            fetch('/api/collect/status').then(r=>r.json()).then(st=>{
+              if(st.result)resolve(st.result);
+              else reject(new Error('Результат не получен'));
+            }).catch(reject);
+          }
+        }catch(pe){}
+      };
+      es.onerror=()=>{es.close();_analysisSSE=null;clearTimeout(timeout);reject(new Error('SSE connection lost'))};
+    });
+
     setTimeout(()=>{
-      renderAnalysisResult(data);
-      // Speak result if triggered by voice
+      renderAnalysisResult(result);
       if(_voiceTriggered){
         _voiceTriggered=false;
-        const summary=generateVoiceSummary(data);
+        const summary=generateVoiceSummary(result);
         if(summary){
           const vh=document.getElementById('voice-hint');
           if(vh){vh.textContent='Озвучиваю...';vh.style.color='#d4af37';vh.classList.add('active')}
@@ -1115,11 +1258,11 @@ async function runAnalysis(){
       }
     },300);
   }catch(e){
-    clearInterval(progressInterval);
     _voiceTriggered=false;
     let errorMsg=e.message;
-    if(errorMsg.includes('abort'))errorMsg='Превышен таймаут (3 мин). Попробуйте позже.';
-    document.getElementById('ai-result').innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);margin-top:16px"><div style="color:var(--red);padding:8px 0;font-size:14px">Ошибка: '+errorMsg+'</div></div>';
+    if(errorMsg==='timeout')errorMsg='Превышен таймаут (5 мин). Попробуйте позже.';
+    else if(errorMsg==='SSE connection lost')errorMsg='Соединение прервано. Проверьте интернет.';
+    document.getElementById('ai-result').innerHTML='<div class="error-card" style="margin-top:16px">Ошибка: '+errorMsg+'</div>';
   }
   document.getElementById('ai-loading').classList.add('hide');
   document.getElementById('ai-btn').disabled=false;
@@ -1230,15 +1373,33 @@ async function tr(text){
 async function trBatch(texts){
   const unique=[...new Set(texts.filter(t=>t&&t.trim()))];
   const missing=unique.filter(t=>!_trCache[t.trim().toLowerCase()]);
-  if(missing.length>0){
+  if(missing.length===0)return;
+
+  const CHUNK_SIZE=15;
+  const DELAY_MS=1200;
+  for(let i=0;i<missing.length;i+=CHUNK_SIZE){
+    const chunk=missing.slice(i,i+CHUNK_SIZE);
     try{
-      const joined=missing.join('\n');
+      const joined=chunk.join('\n');
       const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&q='+encodeURIComponent(joined));
-      const data=await r.json();
-      const lines=data[0].map(s=>s[0]);
-      missing.forEach((orig,i)=>{if(lines[i])_trCache[orig.trim().toLowerCase()]=lines[i]});
-      _trSave();
+      if(r.status===429){
+        // Rate limited — wait and retry once
+        await new Promise(res=>setTimeout(res,3000));
+        const r2=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ru&dt=t&q='+encodeURIComponent(joined));
+        if(r2.ok){
+          const data=await r2.json();
+          const lines=data[0].map(s=>s[0]);
+          chunk.forEach((orig,j)=>{if(lines[j])_trCache[orig.trim().toLowerCase()]=lines[j]});
+        }
+      }else if(r.ok){
+        const data=await r.json();
+        const lines=data[0].map(s=>s[0]);
+        chunk.forEach((orig,j)=>{if(lines[j])_trCache[orig.trim().toLowerCase()]=lines[j]});
+      }
+      // else: translation failed — keep original name (fallback)
     }catch(e){}
+    _trSave();
+    if(i+CHUNK_SIZE<missing.length)await new Promise(res=>setTimeout(res,DELAY_MS));
   }
 }
 
@@ -1366,7 +1527,7 @@ function renderAnalysisResult(data){
   window._lastAnalysis=data;
 }
 
-function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function translateBet(t){
   const m={'HOME':'Победа хозяев','AWAY':'Победа гостей','DRAW':'Ничья','P1':'Победа хозяев','X':'Ничья','P2':'Победа гостей'};
   return m[t.toUpperCase()]||t;
@@ -1460,71 +1621,136 @@ function stopVoiceInput(){
 
 function parseVoiceInput(text){
   const hint=document.getElementById('voice-hint');
-  text=text.trim().toLowerCase();
+  const original=text.trim();
+  text=original.toLowerCase();
 
-  // Убираем обращения и шаблонные фразы
-  text=text.replace(/виж[её]н|вижион|прогноз|прогнозируй|дай|скажи|назови|покажи|проанализируй|матч|игру| המשחק|ставк[уи]|на матч|как сыграют|как играют/gi,'').trim();
+  // ── 1. Detect INTENT ──
+  let intent='predict'; // default
+  if(/когда\s+(игра[юут]|начнёт|начнется|будет)/.test(text)|/расписани[ея]/.test(text))intent='schedule';
+  else if(/что\s+(происходит|идёт|играет)/.test(text)|/статус|live|лайв/.test(text))intent='live_status';
+  else if(/погод[ау]/.test(text))intent='weather';
+  else if(/таблиц[ауы]|турнир/.test(text))intent='standings';
 
-  // Ищем разделители: против, vs, - , — , , , playing, versus, и
-  const separators=['против','vs','versus','playing','-','—',','];
+  // ── 2. Detect MATCH TYPE ──
+  let matchType='full'; // default
+  if(/перв[а-яы]*\s*тайм|1\s*тайм|first\s*half|1st/.test(text))matchType='first_half';
+  else if(/втор[а-яы]*\s*тайм|2\s*тайм|second\s*half|2nd/.test(text))matchType='second_half';
+
+  // ── 3. Detect TIME CONTEXT ──
+  let timeContext='auto'; // auto = let backend decide
+  if(/сейчас|прямо\s+сейчас|live|лайв|идёт/.test(text))timeContext='live';
+  else if(/сегодня/.test(text))timeContext='today';
+  else if(/завтра/.test(text))timeContext='tomorrow';
+
+  // ── 4. Extract TEAM NAMES ──
+  // Strip intent phrases and filler words
+  let cleaned=text
+    .replace(/виж[её]н|вижион|визион/gi,'')
+    .replace(/прогноз|прогнозируй|прогноз на/gi,'')
+    .replace(/дай|скажи|назови|покажи|проанализируй/gi,'')
+    .replace(/матч|игру|игру|ставк[уи]|на матч/gi,'')
+    .replace(/как сыграют|как играют|кто победит/gi,'')
+    .replace(/перв[а-яы]*\s*тайм|1\s*тайм|втор[а-яы]*\s*тайм|2\s*тайм/gi,'')
+    .replace(/первого|второго/gi,'')
+    .replace(/на\s+/gi,'')
+    .replace(/сегодня|завтра|сейчас/gi,'')
+    .trim();
+
+  // Try separators: против, vs, versus, playing, and "и" between names
+  const separators=['против','vs','versus','playing'];
   let parts=null;
 
   for(const sep of separators){
-    const idx=text.indexOf(sep);
+    const idx=cleaned.indexOf(sep);
     if(idx>0){
-      parts=[text.substring(0,idx).trim(),text.substring(idx+sep.length).trim()];
+      parts=[cleaned.substring(0,idx).trim(),cleaned.substring(idx+sep.length).trim()];
       break;
     }
   }
 
-  // Если нашли "и" между двумя словами (например "испания и аргентина")
+  // Try dash: "испания - аргентина" but not "1 - 0"
   if(!parts){
-    const andMatch=text.match(/^(.+?)\s+и\s+(.+)$/);
-    if(andMatch){
-      parts=[andMatch[1].trim(),andMatch[2].trim()];
+    const dashMatch=cleaned.match(/^(.+?)\s*[-—]\s*(.+)$/);
+    if(dashMatch&&isNaN(dashMatch[1])&&isNaN(dashMatch[2])){
+      parts=[dashMatch[1].trim(),dashMatch[2].trim()];
     }
   }
 
-  // Если нашли "на" (например "испания на аргентину")
+  // Try "и": "испания и аргентина"
   if(!parts){
-    const naMatch=text.match(/^(.+?)\s+на\s+(.+)$/);
-    if(naMatch){
-      parts=[naMatch[1].trim(),naMatch[2].trim()];
-    }
+    const andMatch=cleaned.match(/^(.+?)\s+и\s+(.+)$/);
+    if(andMatch)parts=[andMatch[1].trim(),andMatch[2].trim()];
   }
 
-  // Паттерн: "прогноз X Y" (два слова после очистки)
+  // Try "на": "испания на аргентину"
   if(!parts){
-    const words=text.split(/\s+/).filter(w=>w.length>1);
-    if(words.length===2){
-      parts=[words[0],words[1]];
-    }
+    const naMatch=cleaned.match(/^(.+?)\s+на\s+(.+)$/);
+    if(naMatch)parts=[naMatch[1].trim(),naMatch[2].trim()];
   }
 
-  // Fallback: делим пополам
+  // Two remaining words = likely team names
   if(!parts){
-    const words=text.split(/\s+/).filter(w=>w.length>1);
+    const words=cleaned.split(/\s+/).filter(w=>w.length>1);
+    if(words.length===2)parts=[words[0],words[1]];
+  }
+
+  // Fallback: split remaining text in half
+  if(!parts){
+    const words=cleaned.split(/\s+/).filter(w=>w.length>1);
     if(words.length>=2){
       const mid=Math.ceil(words.length/2);
       parts=[words.slice(0,mid).join(' '),words.slice(mid).join(' ')];
     }
   }
 
-  if(parts&&parts[0]&&parts[1]&&parts[0].length>1&&parts[1].length>1){
-    const home=parts[0].charAt(0).toUpperCase()+parts[0].slice(1);
-    const away=parts[1].charAt(0).toUpperCase()+parts[1].slice(1);
-    document.getElementById('ai-home').value=home;
-    document.getElementById('ai-away').value=away;
-    document.getElementById('ai-btn').disabled=false;
-    hint.textContent=home+' vs '+away;
-    hint.style.color='#d4af37';
-
-    _voiceTriggered=true;
-    setTimeout(()=>runAnalysis(),500);
-  }else{
-    hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';
-    hint.style.color='#ff3b30';
+  // ── 5. ROUTE based on intent ──
+  if(intent==='live_status'){
+    hint.textContent='Ищу live матчи...';
+    hint.style.color='var(--cyan)';
+    switchPane('live');
+    return;
   }
+  if(intent==='schedule'){
+    hint.textContent='Ищу расписание...';
+    hint.style.color='var(--cyan)';
+    switchPane('prematch');
+    return;
+  }
+  if(intent==='standings'){
+    hint.textContent='Показываю турнирную таблицу...';
+    hint.style.color='var(--cyan)';
+    // No standings pane yet — fallback to prematch
+    switchPane('prematch');
+    return;
+  }
+
+  // ── 6. Need team names for predict/weather ──
+  if(!parts||!parts[0]||!parts[1]||parts[0].length<2||parts[1].length<2){
+    hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';
+    hint.style.color='var(--red)';
+    return;
+  }
+
+  const home=parts[0].charAt(0).toUpperCase()+parts[0].slice(1);
+  const away=parts[1].charAt(0).toUpperCase()+parts[1].slice(1);
+
+  // Store match context for post-analysis response
+  window._voiceMatchType=matchType;
+  window._voiceTimeContext=timeContext;
+
+  document.getElementById('ai-home').value=home;
+  document.getElementById('ai-away').value=away;
+  document.getElementById('ai-btn').disabled=false;
+
+  // Show what we understood
+  let understood=home+' vs '+away;
+  if(matchType==='first_half')understood+=' (1-й тайм)';
+  else if(matchType==='second_half')understood+=' (2-й тайм)';
+  hint.textContent=understood;
+  hint.style.color='#d4af37';
+
+  _voiceTriggered=true;
+  setTimeout(()=>runAnalysis(),500);
 }
 
 function savePrediction(){
@@ -1588,52 +1814,57 @@ async function loadTodayMatches(){
     prematchMatches=data.matches||[];
     document.getElementById('prematch-loading').style.display='none';
 
-    // Pre-translate team names in batch
-    const namesToTranslate=[];
-    prematchMatches.forEach(m=>{
-      if(m.home&&currentSport!=='tennis')namesToTranslate.push(m.home,m.away);
-      if(currentSport==='tennis')namesToTranslate.push(m.player1,m.player2);
-    });
-    await trBatch(namesToTranslate);
-
     if(!prematchMatches.length){
       document.getElementById('prematch-list').innerHTML=emptyState('Матчей на сегодня не найдено');
       return;
     }
 
-    let html='<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:14px">Матчи на сегодня ('+prematchMatches.length+')</div>';
-    prematchMatches.forEach((m,i)=>{
-      if(i>0)html+='<div class="grad-divider"></div>';
-      if(currentSport==='tennis'){
-        const surface=m.surface||'';
-        const surfaceColor=surface==='Clay'?'#e67e22':surface==='Grass'?'#27ae60':'#3498db';
-        html+='<div class="mc" onclick="loadTennisMatchDetail('+i+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
-        html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
-        html+='<span>'+(m.tournament||'')+'</span><span style="color:'+surfaceColor+'">'+surface+'</span></div>';
-        html+='<div class="mc-teams"><div class="mc-home">'+m.player1+'</div><div class="mc-score">vs</div><div class="mc-away">'+m.player2+'</div></div>';
-        if(m.odds1){html+='<div style="display:flex;justify-content:center;gap:20px;margin-top:8px;font-size:12px;color:var(--ink2)"><span>'+m.odds1+'</span><span>'+(m.odds_draw||'—')+'</span><span>'+m.odds2+'</span></div>'}
-        html+='</div>';
-      }else{
-        let timeStr='';
-        if(m.time){try{const d=new Date(m.time);timeStr=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})+' МСК'}catch(e){timeStr=m.time}}
-        const hTr=_trCache[(m.home||'').trim().toLowerCase()]||m.home_ru||m.home;
-        const aTr=_trCache[(m.away||'').trim().toLowerCase()]||m.away_ru||m.away;
-        html+='<div class="mc" onclick="loadMatchDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
-        html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
-        html+='<span>'+(m.league_ru||m.league)+'</span><span>'+timeStr+'</span></div>';
-        html+='<div class="mc-teams"><div class="mc-home">'+hTr+(hTr!==m.home?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.home+'</div>':'')+'</div>';
-        html+='<div class="mc-score">vs</div>';
-        html+='<div class="mc-away">'+aTr+(aTr!==m.away?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.away+'</div>':'')+'</div></div>';
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+countdownHTML(m.time)+countdownRingHTML(m.time)+'</div>';
-        html+='</div>';
-      }
+    // Render immediately with original names
+    _renderPrematchList();
+
+    // Background translate (non-blocking, re-renders when done)
+    const namesToTranslate=[];
+    prematchMatches.forEach(m=>{
+      if(m.home&&currentSport!=='tennis')namesToTranslate.push(m.home,m.away);
+      if(currentSport==='tennis')namesToTranslate.push(m.player1,m.player2);
     });
-    html+='</div>';
-    document.getElementById('prematch-list').innerHTML=html;
+    trBatch(namesToTranslate).then(()=>_renderPrematchList());
   }catch(e){
     document.getElementById('prematch-loading').style.display='none';
-    document.getElementById('prematch-list').innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    document.getElementById('prematch-list').innerHTML='<div class="error-card">Ошибка: '+e.message+'</div>';
   }
+}
+
+function _renderPrematchList(){
+  let html='<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:14px">Матчи на сегодня ('+prematchMatches.length+')</div>';
+  prematchMatches.forEach((m,i)=>{
+    if(i>0)html+='<div class="grad-divider"></div>';
+    if(currentSport==='tennis'){
+      const surface=m.surface||'';
+      const surfaceColor=surface==='Clay'?'#e67e22':surface==='Grass'?'#27ae60':'#3498db';
+      html+='<div class="mc" onclick="loadTennisMatchDetail('+i+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
+      html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
+      html+='<span>'+(m.tournament||'')+'</span><span style="color:'+surfaceColor+'">'+surface+'</span></div>';
+      html+='<div class="mc-teams"><div class="mc-home">'+m.player1+'</div><div class="mc-score">vs</div><div class="mc-away">'+m.player2+'</div></div>';
+      if(m.odds1){html+='<div style="display:flex;justify-content:center;gap:20px;margin-top:8px;font-size:12px;color:var(--ink2)"><span>'+m.odds1+'</span><span>'+(m.odds_draw||'—')+'</span><span>'+m.odds2+'</span></div>'}
+      html+='</div>';
+    }else{
+      let timeStr='';
+      if(m.time){try{const d=new Date(m.time);timeStr=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow'})+' МСК'}catch(e){timeStr=m.time}}
+      const hTr=_trCache[(m.home||'').trim().toLowerCase()]||m.home_ru||m.home;
+      const aTr=_trCache[(m.away||'').trim().toLowerCase()]||m.away_ru||m.away;
+      html+='<div class="mc" onclick="loadMatchDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
+      html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
+      html+='<span>'+(m.league_ru||m.league)+'</span><span>'+timeStr+'</span></div>';
+      html+='<div class="mc-teams"><div class="mc-home">'+hTr+(hTr!==m.home?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.home+'</div>':'')+'</div>';
+      html+='<div class="mc-score">vs</div>';
+      html+='<div class="mc-away">'+aTr+(aTr!==m.away?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.away+'</div>':'')+'</div></div>';
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+countdownHTML(m.time)+countdownRingHTML(m.time)+'</div>';
+      html+='</div>';
+    }
+  });
+  html+='</div>';
+  document.getElementById('prematch-list').innerHTML=html;
 }
 
 async function loadTennisMatchDetail(matchIndex){
@@ -1688,7 +1919,7 @@ async function loadTennisMatchDetail(matchIndex){
 
     detail.innerHTML=html;
   }catch(e){
-    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToTennisList()">← Назад</button></div><div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToTennisList()">← Назад</button></div><div class="error-card">Ошибка: '+e.message+'</div>';
   }
 }
 
@@ -1736,6 +1967,7 @@ async function loadLiveMatches(){
         if(parts.length===2&&!isNaN(parts[0])&&!isNaN(parts[1])){
           if(parts[0]>parts[1])scoreHtml='<span class="score-glow-home">'+score+'</span>';
           else if(parts[1]>parts[0])scoreHtml='<span class="score-glow-away">'+score+'</span>';
+          else scoreHtml='<span class="score-glow-draw">'+score+'</span>';
         }
       }
       html+='<div class="mc" onclick="loadLiveDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
@@ -1753,9 +1985,14 @@ async function loadLiveMatches(){
     html+='</div>';
     document.getElementById('live-list').innerHTML=html;
     setupAutoRefresh();
+    _markLiveUpdated();
   }catch(e){
     document.getElementById('live-loading').style.display='none';
-    document.getElementById('live-list').innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    const ts=document.getElementById('live-updated-ts');
+    if(ts){ts.textContent='ошибка обновления';ts.classList.add('live-update-error');setTimeout(()=>ts.classList.remove('live-update-error'),5000)}
+    if(!document.getElementById('live-list').innerHTML.trim()){
+      document.getElementById('live-list').innerHTML='<div class="error-card">Ошибка: '+e.message+'</div>';
+    }
   }
 }
 
@@ -1784,7 +2021,7 @@ async function loadLiveDetail(gameId){
     const r=await fetch('/api/prematch/live/'+gameId);
     const data=await r.json();
 
-    if(data.error){detail.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">'+data.error+'</div>';return}
+    if(data.error){detail.innerHTML='<div class="error-card">'+data.error+'</div>';return}
 
     let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">';
     html+='<button class="btn ghost sm" onclick="backToLiveList()">← Назад</button>';
@@ -1804,6 +2041,7 @@ async function loadLiveDetail(gameId){
       if(pts.length===2&&!isNaN(pts[0])&&!isNaN(pts[1])){
         if(pts[0]>pts[1])liveScore='<span class="score-glow-home">'+liveScore+'</span>';
         else if(pts[1]>pts[0])liveScore='<span class="score-glow-away">'+liveScore+'</span>';
+        else liveScore='<span class="score-glow-draw">'+liveScore+'</span>';
       }
     }
     html+='<div class="live-score">'+liveScore+'</div>';
@@ -1850,7 +2088,7 @@ async function loadLiveDetail(gameId){
 
     detail.innerHTML=html;
   }catch(e){
-    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToLiveList()">← Назад</button></div><div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToLiveList()">← Назад</button></div><div class="error-card">Ошибка: '+e.message+'</div>';
   }
 }
 
@@ -1946,7 +2184,7 @@ async function loadPredictions(){
     document.getElementById('predictions-list').innerHTML=html;
   }catch(e){
     document.getElementById('predictions-loading').style.display='none';
-    document.getElementById('predictions-list').innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    document.getElementById('predictions-list').innerHTML='<div class="error-card">Ошибка: '+e.message+'</div>';
   }
 }
 
@@ -1962,7 +2200,7 @@ async function loadPredictionDetail(predId){
     const r=await fetch('/api/predictions/'+predId);
     const p=await r.json();
 
-    if(p.error){detail.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">'+p.error+'</div>';return}
+    if(p.error){detail.innerHTML='<div class="error-card">'+p.error+'</div>';return}
 
     const typeIcon=p.prediction_type==='live'?'●':p.prediction_type==='prematch'?'○':'◆';
     const typeName=p.prediction_type==='live'?'Live':p.prediction_type==='prematch'?'Предматч':'Анализ';
@@ -2013,7 +2251,7 @@ async function loadPredictionDetail(predId){
 
     detail.innerHTML=html;
   }catch(e){
-    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToPredictionsList()">← Назад</button></div><div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    detail.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><button class="btn ghost sm" onclick="backToPredictionsList()">← Назад</button></div><div class="error-card">Ошибка: '+e.message+'</div>';
   }
 }
 
@@ -2059,7 +2297,7 @@ async function loadMatchDetail(gameId){
     setProgress(100,'Готово!','Этап 4/4');
 
     const data=await r.json();
-    if(data.error){detail.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">'+data.error+'</div>';return}
+    if(data.error){detail.innerHTML='<div class="error-card">'+data.error+'</div>';return}
 
     let html='<div class="card">';
     html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
@@ -2144,7 +2382,7 @@ async function loadMatchDetail(gameId){
       setTimeout(()=>autoRunPrematchAI(gameId),500);
     }
   }catch(e){
-    detail.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);color:var(--red)">Ошибка: '+e.message+'</div>';
+    detail.innerHTML='<div class="error-card">Ошибка: '+e.message+'</div>';
   }
 }
 
@@ -2248,7 +2486,7 @@ async function runPrematchAI(gameId){
       _aiRetryTimer=setTimeout(()=>autoRunPrematchAI(gameId),8000);
       return;
     }
-    result.innerHTML='<div class="card" style="border:1px solid rgba(255,69,58,.2);margin-top:12px"><div style="color:var(--red);padding:8px 0;font-size:14px">Ошибка: '+e.message+'</div></div>';
+    result.innerHTML='<div class="error-card" style="margin-top:12px">Ошибка: '+e.message+'</div>';
   }
   loading.style.display='none';
   if(btn){btn.disabled=false;btn.textContent='AI-анализ VisionPro'}
@@ -2422,6 +2660,42 @@ function skeletonCards(n){
     c.appendChild(s);
   }
 })();
+
+// ── Offline banner ──
+(function(){
+  const banner=document.getElementById('offline-banner');
+  if(!banner)return;
+  function update(){
+    if(!navigator.onLine)banner.classList.add('show');
+    else banner.classList.remove('show');
+  }
+  window.addEventListener('online',update);
+  window.addEventListener('offline',update);
+  update();
+})();
+
+// ── Live update timestamp ──
+let _liveLastUpdate=null;
+let _liveUpdateTimer=null;
+
+function _updateLiveTimestamp(){
+  const el=document.getElementById('live-updated-ts');
+  if(!el||!_liveLastUpdate){
+    if(el)el.textContent='';
+    return;
+  }
+  const sec=Math.floor((Date.now()-_liveLastUpdate)/1000);
+  if(sec<5)el.textContent='обновлено только что';
+  else if(sec<60)el.textContent='обновлено '+sec+' сек назад';
+  else el.textContent='обновлено '+Math.floor(sec/60)+' мин назад';
+}
+
+function _markLiveUpdated(){
+  _liveLastUpdate=Date.now();
+  _updateLiveTimestamp();
+  if(_liveUpdateTimer)clearInterval(_liveUpdateTimer);
+  _liveUpdateTimer=setInterval(_updateLiveTimestamp,10000);
+}
 
 loadModels();
 </script>

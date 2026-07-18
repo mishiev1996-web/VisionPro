@@ -31,8 +31,51 @@ if not SSTATS_KEY:
             SSTATS_KEY = _f.read().strip()
 
 import threading as _threading
+import time as _time
+import functools
 _sstats_lock = _threading.Lock()
 _sstats_last_call = 0.0
+
+# ── TTL Cache ────────────────────────────────────────────────────────────────
+
+_SSTATS_CACHE_TTL = 300  # 5 minutes — match data doesn't change faster
+_sstats_cache: Dict[str, tuple] = {}  # key → (timestamp, value)
+_sstats_cache_lock = _threading.Lock()
+
+
+def _cache_key(func_name: str, args: tuple, kwargs: tuple) -> str:
+    """Build a cache key from function name and arguments."""
+    return f"{func_name}:{args}:{kwargs}"
+
+
+def cached_sstats(ttl: int = _SSTATS_CACHE_TTL):
+    """Decorator: cache sstats function results for `ttl` seconds.
+
+    Thread-safe. Cache is per-function+args. Auto-expires entries.
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            key = _cache_key(fn.__name__, args, tuple(sorted(kwargs.items())))
+            now = _time.monotonic()
+            with _sstats_cache_lock:
+                if key in _sstats_cache:
+                    ts, val = _sstats_cache[key]
+                    if now - ts < ttl:
+                        return val
+            # Cache miss — call the real function
+            result = fn(*args, **kwargs)
+            with _sstats_cache_lock:
+                _sstats_cache[key] = (now, result)
+                # Evict expired entries periodically (max 500 entries)
+                if len(_sstats_cache) > 500:
+                    expired = [k for k, (ts, _) in _sstats_cache.items()
+                               if now - ts > ttl]
+                    for k in expired:
+                        del _sstats_cache[k]
+            return result
+        return wrapper
+    return decorator
 
 
 def _rate_limit():
@@ -84,6 +127,7 @@ def fetch_leagues() -> List[dict]:
     return (data or {}).get("data") or []
 
 
+@cached_sstats()
 def fetch_games_by_date(date_iso: str) -> List[dict]:
     """All worldwide matches on a single date (YYYY-MM-DD)."""
     data = _fetch_one(f"/Games/list?date={date_iso}")
@@ -96,6 +140,7 @@ def fetch_upcoming_by_team(team_id: int) -> List[dict]:
     return (data or {}).get("data") or []
 
 
+@cached_sstats()
 def fetch_upcoming_all() -> List[dict]:
     """All upcoming worldwide matches — upcoming filter + today's remaining."""
     # 1. Upcoming filter (may miss some due to limit=1000)
@@ -114,12 +159,14 @@ def fetch_upcoming_all() -> List[dict]:
     return games
 
 
+@cached_sstats()
 def fetch_live_matches() -> List[dict]:
     """All currently live matches worldwide."""
     data = _fetch_one("/Games/list?live=true&limit=1000") or {}
     return (data or {}).get("data") or []
 
 
+@cached_sstats()
 def fetch_h2h(team1_id: int, team2_id: int) -> List[dict]:
     """Head-to-head: all ended matches between two teams."""
     data = _fetch_one(f"/Games/list?ended=true&bothTeams={team1_id},{team2_id}")
@@ -133,16 +180,19 @@ def fetch_games_by_league(league_id: int, page: int = 0) -> List[dict]:
     return (data or {}).get("data") or []
 
 
+@cached_sstats()
 def fetch_game(game_id: int) -> Optional[dict]:
     data = _fetch_one(f"/Games/{game_id}")
     return (data or {}).get("data")
 
 
+@cached_sstats()
 def fetch_glicko(game_id: int) -> Optional[dict]:
     data = _fetch_one(f"/Games/glicko/{game_id}")
     return (data or {}).get("data")
 
 
+@cached_sstats()
 def fetch_text_summary(game_id: int) -> Optional[str]:
     """Pre-built Russian text summary with bookmaker predictions."""
     _rate_limit()
@@ -158,6 +208,7 @@ def fetch_text_summary(game_id: int) -> Optional[str]:
         return None
 
 
+@cached_sstats()
 def fetch_odds(game_id: int) -> List[dict]:
     """All bookmakers' odds + market types for a game."""
     data = _fetch_one(f"/Odds/{game_id}")
@@ -201,6 +252,7 @@ def search_team_matches(team_name: str, limit: int = 10) -> List[dict]:
     return search_team_by_name(team_name, limit)
 
 
+@cached_sstats()
 def fetch_last_games_stats(game_id: int, limit: int = 25,
                            same_league: bool = False,
                            same_season: bool = False,
@@ -225,6 +277,7 @@ def fetch_last_games_stats(game_id: int, limit: int = 25,
     return (data or {}).get("data")
 
 
+@cached_sstats()
 def fetch_injuries(game_id: int) -> List[dict]:
     """Players unavailable due to injury for a specific match."""
     data = _fetch_one(f"/Games/injuries?gameId={game_id}")
@@ -241,6 +294,7 @@ def fetch_season_table(league_id: int, year: int = None,
     return (data or {}).get("data")
 
 
+@cached_sstats()
 def fetch_profits(game_id: int, limit: int = 25,
                   this_league: bool = False,
                   home_away: bool = False) -> Optional[dict]:
