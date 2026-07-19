@@ -226,16 +226,26 @@ def search_team_by_name(team_name: str, limit: int = 5) -> List[dict]:
     Returns list of matches where the team appears, with team info.
     """
     _rate_limit()
+    # Sanitize team_name to prevent injection into the Condition string
+    # Escape: single/double quotes, LIKE wildcards (% and _), backslash
+    safe_name = (team_name
+                 .replace("\\", "\\\\")
+                 .replace("'", "''")
+                 .replace('"', '""')
+                 .replace("%", "\\%")
+                 .replace("_", "\\_"))
     body = {
-        "Condition": f"HomeTeamName LIKE '%{team_name}%' OR AwayTeamName LIKE '%{team_name}%'",
+        "Condition": f"HomeTeamName LIKE '%{safe_name}%' OR AwayTeamName LIKE '%{safe_name}%'",
         "Fields": ["Id", "Date", "HomeTeamName", "HomeTeamId", "AwayTeamName", "AwayTeamId",
                    "ScoreHomeFT", "ScoreAwayFT", "Status", "LeagueId", "LeagueName"],
         "Order": "Date DESC",
         "Limit": limit
     }
+    headers = {"apikey": SSTATS_KEY, "Content-Type": "application/json",
+               "User-Agent": "Mozilla/5.0 (Football-AI)"}
     try:
         r = _requests.post(f"{SSTATS_BASE}/Games/query", 
-                          headers={**HEADERS, "Content-Type": "application/json"},
+                          headers=headers,
                           json=body, timeout=20)
         if r.status_code == 200:
             return (r.json() or {}).get("data") or []

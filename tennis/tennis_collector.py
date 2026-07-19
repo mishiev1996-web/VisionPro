@@ -214,9 +214,12 @@ def collect_live(progress_cb=None) -> dict:
 
 # ── Search ───────────────────────────────────────────────────────────────────
 
+from urllib.parse import quote
+
+
 def search(query: str) -> list:
     """Search for players/tournaments."""
-    data = _get(f"search/{query}")
+    data = _get(f"search/{quote(query, safe='')}")
     if not data:
         return []
 

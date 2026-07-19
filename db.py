@@ -1276,12 +1276,19 @@ def prediction_stats() -> Dict[str, Any]:
             "GROUP BY month ORDER BY month"
         ).fetchall()
 
-        # By week (last 12 weeks)
-        by_week = conn.execute(
-            "SELECT SUBSTR(created_at, 1, 10) as day, COUNT(*) as n, "
+        # By league
+        by_league_raw = conn.execute(
+            "SELECT COALESCE(league, 'Unknown') as league, COUNT(*) as n, "
             "SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as c "
             "FROM predictions WHERE actual_result IS NOT NULL "
-            "GROUP BY day ORDER BY day DESC LIMIT 84"
+            "GROUP BY league ORDER BY n DESC"
+        ).fetchall()
+
+        # Recent trend (last 20 settled predictions)
+        recent_raw = conn.execute(
+            "SELECT created_at, home_name, away_name, confidence, main_bet, is_correct "
+            "FROM predictions WHERE actual_result IS NOT NULL "
+            "ORDER BY created_at DESC LIMIT 20"
         ).fetchall()
 
     return {
@@ -1299,6 +1306,16 @@ def prediction_stats() -> Dict[str, Any]:
             {"month": r[0], "total": r[1], "correct": r[2] or 0,
              "hit_rate": round((r[2] or 0) / r[1] * 100, 1) if r[1] > 0 else 0}
             for r in by_month
+        ],
+        "by_league": [
+            {"league": r[0], "total": r[1], "correct": r[2] or 0,
+             "hit_rate": round((r[2] or 0) / r[1] * 100, 1) if r[1] > 0 else 0}
+            for r in by_league_raw
+        ],
+        "recent_trend": [
+            {"date": (r[0] or "")[:10], "home": r[1] or "", "away": r[2] or "",
+             "confidence": r[3] or "None", "bet": r[4] or "", "correct": bool(r[5])}
+            for r in recent_raw
         ],
     }
 

@@ -634,10 +634,12 @@ def generate_preview(home_id: int, away_id: int, model: str = DEFAULT_MODEL) -> 
 
     prediction = None
     try:
-        import joblib as _joblib
+        import state as _state
         import pandas as pd
         import numpy as np
-        model_data = _joblib.load("model.pkl")
+        model_data = _state.MODEL
+        if model_data is None:
+            raise RuntimeError("Модель не загружена — запустите train.py")
         X = pd.DataFrame([features_list], columns=model_data["features"])
         X = X.astype(float).where(pd.notna(X), np.nan)
         model_obj = model_data.get("model") or model_data.get("ensemble")
@@ -1516,7 +1518,7 @@ def _search_sstats_team(team_name: str, progress_cb=None,
             return None
         try:
             results = sstats.fetch_query(
-                condition=f"LeagueId = {lid} AND Year = 2025 AND Status = 8",
+                condition=f"LeagueId = {lid} AND Year = {_dc._current_season_year()} AND Status = 8",
                 fields=["Id", "Date", "HomeTeamName", "AwayTeamName",
                         "HomeTeamId", "AwayTeamId", "ScoreHomeFT", "ScoreAwayFT"],
                 order="Date DESC",
@@ -1887,6 +1889,14 @@ def search_and_predict(home_name: str, away_name: str,
     if sstats_data and sstats_data.get("injuries"):
         injuries = sstats_data["injuries"]
         if injuries:
+            # Determine home/away team IDs from game detail
+            home_tid = None
+            away_tid = None
+            gd = sstats_data.get("game_detail")
+            if isinstance(gd, dict):
+                g = gd.get("game", gd)
+                home_tid = (g.get("homeTeam") or {}).get("id")
+                away_tid = (g.get("awayTeam") or {}).get("id")
             context_parts.append("ТРАВМЫ И ДИСКВАЛИФИКАЦИИ (sstats.net):")
             for inj in injuries[:15]:
                 player = inj.get("player", {})
@@ -1895,8 +1905,13 @@ def search_and_predict(home_name: str, away_name: str,
                 else:
                     player_name = str(player)
                 reason = inj.get("reason", "?")
-                team_id = inj.get("teamId", "?")
-                team_label = "ХОЗЯЕВА" if team_id == 1 else "ГОСТИ"
+                inj_tid = inj.get("teamId")
+                if home_tid and inj_tid == home_tid:
+                    team_label = "ХОЗЯЕВА"
+                elif away_tid and inj_tid == away_tid:
+                    team_label = "ГОСТИ"
+                else:
+                    team_label = "?"
                 context_parts.append(f"  [{team_label}] {player_name}: {reason}")
             context_parts.append("")
 

@@ -3,6 +3,7 @@ scrapers/tennis_atp.py — Parse tennis schedule from ATP Tour website.
 
 Fetches upcoming ATP tournaments and matches from atptour.com.
 """
+from urllib.parse import quote_plus
 from __future__ import annotations
 
 import re
@@ -164,7 +165,7 @@ def fetch_rankings(top_n: int = 100) -> List[Dict]:
 
 def search_player(query: str) -> List[Dict]:
     """Search for a player by name."""
-    url = f"{ATP_BASE}/en/search?q={query}"
+    url = f"{ATP_BASE}/en/search?q={quote_plus(query)}"
     html = _fetch(url)
     if not html:
         return []

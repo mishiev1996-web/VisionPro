@@ -183,7 +183,8 @@ def api_list_predictions(limit: int = 50):
 
 @router.get("/predictions/stats")
 def api_predictions_stats():
-    """Legacy stats: by league, confidence breakdown, recent trend."""
+    """Hit-rate stats for settled predictions (by confidence, by month)."""
+    return db.prediction_stats()
 
 
 @router.post("/predictions/settle")
@@ -197,40 +198,6 @@ def api_settle_predictions():
 def api_prediction_hitrate():
     """Hit-rate stats for settled predictions (by confidence, by month)."""
     return db.prediction_stats()
-    with db.connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM predictions ORDER BY created_at DESC LIMIT 500"
-        ).fetchall()
-    preds = [dict(r) for r in rows]
-    total = len(preds)
-    if not total:
-        return {"total": 0, "win_rate": 0, "by_league": {}, "confidence_breakdown": {}, "recent_trend": []}
-    by_league = {}
-    conf_breakdown = {"Высокая": 0, "Средняя": 0, "Низкая": 0, "None": 0}
-    recent_trend = []
-    for p in preds:
-        lg = p.get("league") or "Unknown"
-        conf = p.get("confidence") or "None"
-        if lg not in by_league:
-            by_league[lg] = {"total": 0, "high_conf": 0}
-        by_league[lg]["total"] += 1
-        if conf == "Высокая":
-            by_league[lg]["high_conf"] += 1
-        if conf in conf_breakdown:
-            conf_breakdown[conf] += 1
-        created = p.get("created_at", "")
-        recent_trend.append({
-            "date": created[:10] if created else "",
-            "home": p.get("home_name", ""),
-            "away": p.get("away_name", ""),
-            "confidence": conf,
-            "main_bet": p.get("main_bet", ""),
-        })
-    return {
-        "total": total, "by_league": by_league,
-        "confidence_breakdown": conf_breakdown,
-        "recent_trend": recent_trend[:20],
-    }
 
 
 @router.get("/predictions/{pred_id}")
