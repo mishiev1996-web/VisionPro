@@ -2078,20 +2078,6 @@ def search_and_predict(home_name: str, away_name: str,
     context_parts.append("")
     context_parts.append("--- ДОСТАТОЧНОСТЬ ДАННЫХ ИЗ БД ---")
     context_parts.append(sufficiency)
-    # ML prediction status
-    if prediction and prediction.get("probabilities"):
-        _ml_probs = prediction["probabilities"]
-        context_parts.append("")
-        context_parts.append("--- ML ПРОГНОЗ VISIONPRO ---")
-        context_parts.append("ML-модель дала прогноз: хозяева=" + str(_ml_probs.get("home_win","?")) + "% ничья=" + str(_ml_probs.get("draw","?")) + "% гости=" + str(_ml_probs.get("away_win","?")) + "%")
-        context_parts.append("Это прогноз ансамбля XGBoost+LightGBM+CatBoost+Dixon-Coles.")
-    else:
-        context_parts.append("")
-        context_parts.append("--- ML ПРОГНОЗ VISIONPRO ---")
-        context_parts.append("ВНИМАНИЕ: СОБСТВЕННАЯ ML-МОДЕЛЬ VISIONPRO НЕ СМОГЛА ПОСТРОИТЬ ПРОГНОЗ ДЛЯ ЭТОГО МАТЧА.")
-        context_parts.append("Команды отсутствуют в обучающей базе. Весь дальнейший анализ основан ИСКЛЮЧИТЕЛЬНО на рыночных коэффициентах.")
-        context_parts.append("ОБЯЗАН сообщить пользователю об этом ПЕРВОЙ СТРОКОЙ ответа.")
-
     context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
     if progress_cb:
@@ -2129,6 +2115,21 @@ def search_and_predict(home_name: str, away_name: str,
             f"  Возможные точные счёта: 1:0, 2:1, 1:1, 2:0\n"
         )
         context_text += totals_block
+
+    # ML prediction status (added after prediction is computed)
+    if prediction and prediction.get("probabilities"):
+        _ml_probs = prediction["probabilities"]
+        context_parts.append("")
+        context_parts.append("--- ML ПРОГНОЗ VISIONPRO ---")
+        context_parts.append("ML-модель дала прогноз: хозяева=" + str(_ml_probs.get("home_win","?")) + "% ничья=" + str(_ml_probs.get("draw","?")) + "% гости=" + str(_ml_probs.get("away_win","?")) + "%")
+        context_parts.append("Это прогноз ансамбля XGBoost+LightGBM+CatBoost+Dixon-Coles.")
+    else:
+        context_parts.append("")
+        context_parts.append("--- ML ПРОГНОЗ VISIONPRO ---")
+        context_parts.append("ВНИМАНИЕ: СОБСТВЕННАЯ ML-МОДЕЛЬ VISIONPRO НЕ СМОГЛА ПОСТРОИТЬ ПРОГНОЗ ДЛЯ ЭТОГО МАТЧА.")
+        context_parts.append("Команды отсутствуют в обучающей базе. Весь дальнейший анализ основан ИСКЛЮЧИТЕЛЬНО на рыночных коэффициентах.")
+        context_parts.append("ОБЯЗАН сообщить пользователю об этом ПЕРВОЙ СТРОКОЙ ответа.")
+    context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
     analysis = _chat([
         {"role": "system", "content": SYSTEM_PROMPT},
