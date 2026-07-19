@@ -40,7 +40,7 @@ def api_bot_predict(body: BotPredictRequest):
         telegram_user = telegram_auth.validate_init_data(body.init_data)
         if telegram_user is None:
             raise HTTPException(403, "Невалидные данные Telegram. Откройте приложение заново.")
-    result = ai_analyzer.search_and_predict(body.home_name, body.away_name, progress_cb=lambda e: None)
+    result = ai_analyzer.search_and_predict(body.home_name, body.away_name, progress_cb=lambda e: None, is_live=False)
     if not result:
         return {"error": "Команды не найдены"}
     if telegram_user:
@@ -113,7 +113,7 @@ def api_ai_search_predict(body: SearchPredictRequest):
         user = telegram_auth.validate_init_data(body.init_data)
         if user is None:
             raise HTTPException(403, "Невалидные данные Telegram. Откройте приложение заново.")
-    return ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model)
+    return ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model, is_live=False)
 
 
 @router.post("/ai/search-and-predict/start")
@@ -125,7 +125,7 @@ def api_ai_search_predict_start(body: SearchPredictRequest):
 
     def worker():
         try:
-            result = ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model, progress_cb=JOB.emit, cancel_event=JOB.cancel)
+            result = ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model, progress_cb=JOB.emit, cancel_event=JOB.cancel, is_live=False)
             if result is None:
                 JOB.emit({"type": "info", "msg": "Анализ отменён"})
                 return

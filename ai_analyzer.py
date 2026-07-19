@@ -1637,7 +1637,8 @@ def search_and_predict(home_name: str, away_name: str,
                        model: str = DEFAULT_MODEL,
                        progress_cb=None,
                        sstats_game_id: int = None,
-                       cancel_event=None) -> dict:
+                       cancel_event=None,
+                       is_live: bool = False) -> dict:
     """Full flow: resolve names → search sstats/DB → predict → AI analysis.
 
     If sstats_game_id is provided, skip the date/team-name search and
@@ -2131,8 +2132,9 @@ def search_and_predict(home_name: str, away_name: str,
         context_parts.append("ОБЯЗАН сообщить пользователю об этом ПЕРВОЙ СТРОКОЙ ответа.")
     context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
+    _prompt = LIVE_SYSTEM_PROMPT if is_live else SYSTEM_PROMPT
     analysis = _chat([
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _prompt},
         {"role": "user", "content": f"Проанализируй этот футбольный матч:\n\n{context_text}"},
     ], model=model, temperature=0.1, max_tokens=2500, timeout=60)
 
