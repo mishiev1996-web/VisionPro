@@ -638,7 +638,7 @@ def analyze_match(match: dict, features: dict, prediction: dict,
         {"role": "system", "content": prompt},
         {"role": "user", "content": f"Проанализируй этот футбольный матч:\n\n{context}"},
     ]
-    return _chat(messages, model=model, temperature=0.7, max_tokens=2000, timeout=60)
+    return _chat(messages, model=model, temperature=0.1, max_tokens=2000, timeout=60)
 
 
 def generate_preview(home_id: int, away_id: int, model: str = DEFAULT_MODEL) -> dict:
@@ -2114,7 +2114,7 @@ def search_and_predict(home_name: str, away_name: str,
     analysis = _chat([
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"Проанализируй этот футбольный матч:\n\n{context_text}"},
-    ], model=model, temperature=0.7, max_tokens=2500, timeout=60)
+    ], model=model, temperature=0.1, max_tokens=2500, timeout=60)
 
     predictions = _extract_predictions_safe(analysis)
 

@@ -354,6 +354,12 @@ def predict_pair(home_id: int, away_id: int, home: dict, away: dict) -> dict:
                 "AND league_slug=? ORDER BY date DESC",
                 (home["league_slug"],),
             ).fetchall()]
+            # Find match_id for this pair (for market odds lookup)
+            _match_row = conn.execute(
+                "SELECT id FROM matches WHERE home_id=? AND away_id=? ORDER BY date DESC LIMIT 1",
+                (home_id, away_id),
+            ).fetchone()
+            _match_id = _match_row[0] if _match_row else None
         today_iso = dt.date.today().isoformat()
         current_season = data_collector._current_season_year()
         features = build_features(
@@ -361,6 +367,7 @@ def predict_pair(home_id: int, away_id: int, home: dict, away: dict) -> dict:
             match_date=today_iso,
             league_slug=home["league_slug"],
             season=current_season,
+            match_id=_match_id,
         )
 
     proba = model_predict_proba([features], home["league_slug"],

@@ -221,6 +221,62 @@ def _table_position(team_id: int, league_slug: str, season: int,
     return 0
 
 
+
+
+# ── Supplementary data preload for inference ────────────────────────────────────────
+
+def _preload_supplementary_data() -> None:
+    """Load sstats/injuries into caches for inference (lightweight version of _preload_training_data)."""
+    try:
+        with db.connect() as conn:
+            rows = conn.execute(
+                "SELECT game_id, home_id, away_id, date FROM sstats_matches"
+            ).fetchall()
+        for r in rows:
+            gid = r["game_id"]
+            date_str = (r["date"] or "")[:10]
+            if r["home_id"]:
+                _team_sstats_games.setdefault(r["home_id"], []).append((gid, date_str, True))
+            if r["away_id"]:
+                _team_sstats_games.setdefault(r["away_id"], []).append((gid, date_str, False))
+        for tid in _team_sstats_games:
+            _team_sstats_games[tid].sort(key=lambda x: x[1], reverse=True)
+    except Exception:
+        pass
+
+    try:
+        with db.connect() as conn:
+            rows = conn.execute(
+                "SELECT game_id, stat_name, home_value, away_value FROM sstats_statistics"
+            ).fetchall()
+        for r in rows:
+            gid = r["game_id"]
+            name = r["stat_name"]
+            if gid not in _sstats_stats_by_game:
+                _sstats_stats_by_game[gid] = {}
+            _sstats_stats_by_game[gid][name] = {"home": r["home_value"], "away": r["away_value"]}
+    except Exception:
+        pass
+
+    try:
+        with db.connect() as conn:
+            rows = conn.execute("SELECT game_id, event_type FROM sstats_events").fetchall()
+        for r in rows:
+            _sstats_events_by_game.setdefault(r["game_id"], []).append(r["event_type"])
+    except Exception:
+        pass
+
+    try:
+        with db.connect() as conn:
+            rows = conn.execute("SELECT team_id, player_name, since, until FROM injuries").fetchall()
+        for r in rows:
+            _injuries_cache.setdefault(r["team_id"], []).append({
+                "player": r["player_name"], "since": r["since"] or "", "until": r["until"] or "2099-12-31",
+            })
+    except Exception:
+        pass
+
+
 # ── Main feature builder ──────────────────────────────────────────────────────
 
 def build_features(home_id: int, away_id: int,
@@ -231,6 +287,15 @@ def build_features(home_id: int, away_id: int,
                    match_id: Optional[int] = None,
                    forecast: Optional[Dict[str, float]] = None) -> List[float]:
     """Compute the full feature vector. `all_prior_matches` is DESC by date."""
+    # Ensure point-in-time cache is populated (needed for inference, not just training)
+    import features_pointintime as _fpit
+    if not _fpit._team_matches_cache:
+        _fpit._preload_team_matches(all_prior_matches)
+
+    # Ensure sstats/injuries caches are populated for inference
+    if not _team_sstats_games:
+        _preload_supplementary_data()
+
     home_hist = [m for m in all_prior_matches
                  if m["home_id"] == home_id or m["away_id"] == home_id][:ROLLING_WINDOW]
     away_hist = [m for m in all_prior_matches
