@@ -142,7 +142,7 @@ def api_tennis_analyze_start(body: TennisAnalysisRequest):
 
     def worker():
         try:
-            result = tennis_ai.search_and_analyze(body.player1, body.player2, model=body.model, progress_cb=JOB.emit)
+            result = tennis_ai.search_and_analyze(body.player1, body.player2, model=body.model, progress_cb=JOB.emit, cancel_event=JOB.cancel)
             JOB.result = result
             JOB.emit({"type": "result", "msg": "Анализ готов", "prediction": result})
         except Exception as e:

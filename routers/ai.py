@@ -125,7 +125,10 @@ def api_ai_search_predict_start(body: SearchPredictRequest):
 
     def worker():
         try:
-            result = ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model, progress_cb=JOB.emit)
+            result = ai_analyzer.search_and_predict(body.home_name, body.away_name, model=body.model, progress_cb=JOB.emit, cancel_event=JOB.cancel)
+            if result is None:
+                JOB.emit({"type": "info", "msg": "Анализ отменён"})
+                return
             JOB.result = result
             JOB.emit({"type": "result", "msg": "Анализ готов", "prediction": result})
         except Exception as e:

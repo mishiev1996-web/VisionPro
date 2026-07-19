@@ -590,7 +590,10 @@ def api_prematch_analyze(game_id: int, model: str = "deepseek/deepseek-v4-flash"
             home_name = (game.get("homeTeam") or {}).get("name", "?")
             away_name = (game.get("awayTeam") or {}).get("name", "?")
             JOB.emit({"type": "info", "msg": f"Анализирую: {home_name} vs {away_name}"})
-            result = ai_analyzer.search_and_predict(home_name, away_name, model=model, progress_cb=JOB.emit, sstats_game_id=game_id)
+            result = ai_analyzer.search_and_predict(home_name, away_name, model=model, progress_cb=JOB.emit, sstats_game_id=game_id, cancel_event=JOB.cancel)
+            if result is None:
+                JOB.emit({"type": "info", "msg": "Анализ отменён"})
+                return
             if result:
                 JOB.result = result
                 JOB.emit({"type": "result", "msg": "AI Анализ готов", "prediction": result})

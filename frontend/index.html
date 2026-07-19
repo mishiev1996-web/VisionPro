@@ -496,6 +496,7 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 
 /* Score draw glow */
 .score-glow-draw{color:var(--amber);text-shadow:0 0 12px rgba(255,214,10,.3)}
+.stop-btn{background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);color:var(--red);border-radius:980px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit;transition:all .2s}.stop-btn:hover{background:rgba(255,69,58,.25);border-color:rgba(255,69,58,.5)}
 </style>
 </head>
 <body>
@@ -572,6 +573,7 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
         <span style="font-size:11px;color:var(--ink3)" id="ai-pct">0%</span>
         <span style="font-size:11px;color:var(--ink3)" id="ai-step">Этап 1/4</span>
       </div>
+      <button class="stop-btn" onclick="stopAllProcesses()">Стоп</button>
     </div>
 
     <div id="ai-result"></div>
@@ -1155,6 +1157,29 @@ aiAway.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=
 document.getElementById('ai-btn').addEventListener('click',runAnalysis);
 
 let _analysisSSE=null;
+let _tennisAbortController=null;
+
+function stopAllProcesses(){
+  // 1. Tell backend to cancel
+  fetch("/api/collect/stop",{method:"POST"}).catch(()=>{});
+  // 2. Close football SSE
+  if(_analysisSSE){try{_analysisSSE.close()}catch(e){}_analysisSSE=null}
+  // 3. Close prematch SSE
+  if(typeof _currentEventSource!=="undefined"&&_currentEventSource){try{_currentEventSource.close()}catch(e){}_currentEventSource=null}
+  // 4. Cancel prematch retry timer
+  if(typeof _aiRetryTimer!=="undefined"&&_aiRetryTimer){clearTimeout(_aiRetryTimer);_aiRetryTimer=null}
+  // 5. Abort tennis fetch
+  if(_tennisAbortController){try{_tennisAbortController.abort()}catch(e){}_tennisAbortController=null}
+  // 6. Hide loading indicators
+  var aiL=document.getElementById("ai-loading");if(aiL)aiL.classList.add("hide");
+  var pmL=document.getElementById("pm-ai-loading");if(pmL)pmL.style.display="none";
+  // 7. Re-enable buttons
+  var aiBtn=document.getElementById("ai-btn");if(aiBtn)aiBtn.disabled=false;
+  var pmBtn=document.getElementById("pm-ai-btn");if(pmBtn)pmBtn.disabled=false;
+  // 8. Toast
+  showToast("Анализ отменён");
+}
+
 function _setAnalysisProgress(pct,msg,step){
   const bar=document.getElementById('ai-bar');
   const pctEl=document.getElementById('ai-pct');
@@ -1181,10 +1206,10 @@ async function runAnalysis(){
   if(currentSport==='tennis'){
     try{
       const params=new URLSearchParams({player1:home,player2:away,model:getSelectedModel()});
-      const controller=new AbortController();
-      const timeoutId=setTimeout(()=>controller.abort(),120000);
-      const r=await fetch('/api/tennis/ai-and-predict?'+params.toString(),{signal:controller.signal});
-      clearTimeout(timeoutId);
+      _tennisAbortController=new AbortController();
+      const timeoutId=setTimeout(()=>_tennisAbortController&&_tennisAbortController.abort(),120000);
+      const r=await fetch('/api/tennis/ai-and-predict?'+params.toString(),{signal:_tennisAbortController.signal});
+      clearTimeout(timeoutId);_tennisAbortController=null;
       _setAnalysisProgress(100,'Готово!','Этап 4/4');
       if(!r.ok)throw new Error('HTTP '+r.status);
       const data=await r.json();
@@ -2387,7 +2412,7 @@ async function loadMatchDetail(gameId){
     html+='<div style="display:flex;gap:8px;margin-top:12px"><button class="btn tint sm btn-save" id="pm-save-btn" onclick="savePrematchPrediction()"><span class="save-text">Сохранить прогноз</span><span class="save-check"></span></button><button class="btn ghost sm btn-copy" onclick="copyPrediction()"><span class="copy-label">Копировать</span><span class="copy-ok">✓</span></button></div>';
 
     html+='<div style="margin-top:14px"><button class="btn wide" id="pm-ai-btn" onclick="runPrematchAI('+gameId+')">AI-анализ VisionPro</button></div>';
-    html+='<div id="pm-ai-loading" class="scan-card" style="display:none"><div class="sonar"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="dot"></div></div><div class="scan-title">VISION<span style="background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent">PRO</span></div><div class="scan-sub" id="pm-ai-status">AI анализирует...</div><div class="scan-bar"><span id="pm-ai-bar"></span></div></div>';
+    html+='<div id="pm-ai-loading" class="scan-card" style="display:none"><div class="sonar"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="dot"></div></div><div class="scan-title">VISION<span style="background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent">PRO</span></div><div class="scan-sub" id="pm-ai-status">AI анализирует...</div><div class="scan-bar"><span id="pm-ai-bar"></span></div><button class="stop-btn" onclick="stopAllProcesses()">Стоп</button></div>';
     html+='<div id="pm-ai-result"></div>';
 
     detail.innerHTML=html;

@@ -319,9 +319,13 @@ def _parse_analysis_response(text: str) -> dict:
 
 
 def search_and_analyze(player1_name: str, player2_name: str,
-                       model: str = None, progress_cb=None) -> dict:
+                       model: str = None, progress_cb=None,
+                       cancel_event=None) -> dict:
     """Search for players, build context, generate analysis."""
     import tennis_collector
+
+    def _cancelled():
+        return cancel_event is not None and cancel_event.is_set()
 
     def _emit(ev):
         if progress_cb:
@@ -331,6 +335,9 @@ def search_and_analyze(player1_name: str, player2_name: str,
                 pass
 
     _emit({"type": "info", "msg": f"Поиск игроков: {player1_name} vs {player2_name}"})
+
+    if _cancelled():
+        return {"error": "Остановлено"}
 
     # First try local DB search
     p1_results = tennis_db.search_player(player1_name, limit=3)

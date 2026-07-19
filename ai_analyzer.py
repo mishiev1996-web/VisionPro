@@ -1595,18 +1595,25 @@ def _search_sstats_team(team_name: str, progress_cb=None,
 def search_and_predict(home_name: str, away_name: str,
                        model: str = DEFAULT_MODEL,
                        progress_cb=None,
-                       sstats_game_id: int = None) -> dict:
+                       sstats_game_id: int = None,
+                       cancel_event=None) -> dict:
     """Full flow: resolve names → search sstats/DB → predict → AI analysis.
 
     If sstats_game_id is provided, skip the date/team-name search and
     fetch enrichment data directly by ID (fast path for prematch/live).
     """
+    def _cancelled():
+        return cancel_event is not None and cancel_event.is_set()
+
     if progress_cb:
         progress_cb({"type": "info", "msg": "Распознаю команды…"})
 
     # Step 0: Resolve Russian names to English
     home_en = _resolve_team_name(home_name)
     away_en = _resolve_team_name(away_name)
+
+    if _cancelled():
+        return None
 
     if progress_cb:
         progress_cb({"type": "info", "msg": f"Поиск: {home_en} vs {away_en}"})
@@ -1692,7 +1699,7 @@ def search_and_predict(home_name: str, away_name: str,
         for prefix in ("fc ", "fk ", "sc ", "sv ", "cf ", "cd ", "ac ", "as "):
             s = s.replace(prefix, "").strip()
         return q in s or s in q
-    if not sstats_data:
+    if not sstats_data and not _cancelled():
         import time as _t_search
         _search_t0 = _t_search.monotonic()
         _SEARCH_TIMEOUT = 20.0  # max seconds for sstats date search
@@ -1701,6 +1708,8 @@ def search_and_predict(home_name: str, away_name: str,
             today = _dt.date.today()
             # Search today -2..+14 days (upcoming matches may be further out)
             for delta in range(-2, 15):
+                if _cancelled():
+                    break
                 if _t_search.monotonic() - _search_t0 > _SEARCH_TIMEOUT:
                     if progress_cb:
                         progress_cb({"type": "info", "msg": f"Поиск на sstats прерван (таймаут {_SEARCH_TIMEOUT}с)"})
@@ -2017,6 +2026,9 @@ def search_and_predict(home_name: str, away_name: str,
     else:
         if progress_cb:
             progress_cb({"type": "info", "msg": "ESPN/web-скрапинг отключён (ENABLE_ESPN_AI=False)"})
+
+    if _cancelled():
+        return None
 
     context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
