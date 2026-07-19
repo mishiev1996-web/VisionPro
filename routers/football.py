@@ -305,12 +305,25 @@ def api_prematch_today():
             away = (g.get("awayTeam") or {}).get("name", "?")
             league = (g.get("season") or {}).get("league", {}).get("name", "?")
             league_ru = LEAGUE_NAME_MAP.get(league, league)
+            # Quality indicator
+            home_team = db.search_team_fuzzy(home, limit=1)
+            away_team = db.search_team_fuzzy(away, limit=1)
+            home_in_db = bool(home_team)
+            away_in_db = bool(away_team)
+            if home_in_db and away_in_db:
+                quality = "ml"
+            elif home_in_db or away_in_db:
+                quality = "partial"
+            else:
+                quality = "none"
+
             matches.append({
                 "game_id": g.get("id"), "home": home, "away": away,
                 "home_ru": home, "away_ru": away,
                 "time": g.get("date", ""),
                 "league": league, "league_ru": league_ru,
                 "status": g.get("statusName", "Not Started"),
+                "quality": quality,
             })
         return {"date": dt.date.today().isoformat(), "matches": matches, "count": len(matches)}
     except Exception as e:

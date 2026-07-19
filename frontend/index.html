@@ -587,8 +587,18 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
     </div>
 
     <div class="card" style="margin-top:var(--card-margin)">
-      <div class="fgrp"><label class="fld">Модель ИИ</label>
-        <select id="pm-model" class="inp" style="font-size:14px;cursor:pointer"></select>
+      <div style="display:flex;gap:8px">
+        <div class="fgrp" style="flex:1"><label class="fld">Модель ИИ</label>
+          <select id="pm-model" class="inp" style="font-size:14px;cursor:pointer"></select>
+        </div>
+        <div class="fgrp" style="flex:1"><label class="fld">Фильтр</label>
+          <select id="pm-filter" class="inp" style="font-size:14px;cursor:pointer" onchange="filterPrematch()">
+            <option value="all">Все матчи</option>
+            <option value="ml">ML прогноз (полный)</option>
+            <option value="partial">Частичные данные</option>
+            <option value="none">Только коэффициенты</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -1852,6 +1862,7 @@ async function loadTodayMatches(){
     const r=await fetch(endpoint);
     const data=await r.json();
     prematchMatches=data.matches||[];
+    window._allPrematchMatches=data.matches||[];
     document.getElementById('prematch-loading').style.display='none';
 
     if(!prematchMatches.length){
@@ -1894,8 +1905,9 @@ function _renderPrematchList(){
       const hTr=_trCache[(m.home||'').trim().toLowerCase()]||m.home_ru||m.home;
       const aTr=_trCache[(m.away||'').trim().toLowerCase()]||m.away_ru||m.away;
       html+='<div class="mc" onclick="loadMatchDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
+      const qualityBadge=m.quality==='ml'?'<span style="background:rgba(48,209,88,.15);color:var(--green);padding:2px 6px;border-radius:6px;font-size:9px;font-weight:600;margin-left:6px">ML</span>':m.quality==='partial'?'<span style="background:rgba(255,214,10,.15);color:var(--amber);padding:2px 6px;border-radius:6px;font-size:9px;font-weight:600;margin-left:6px">~</span>':'<span style="background:rgba(255,69,58,.1);color:var(--ink3);padding:2px 6px;border-radius:6px;font-size:9px;font-weight:400;margin-left:6px">⚠</span>';
       html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
-      html+='<span>'+(m.league_ru||m.league)+'</span><span>'+timeStr+'</span></div>';
+      html+='<span>'+(m.league_ru||m.league)+qualityBadge+'</span><span>'+timeStr+'</span></div>';
       html+='<div class="mc-teams"><div class="mc-home">'+hTr+(hTr!==m.home?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.home+'</div>':'')+'</div>';
       html+='<div class="mc-score">vs</div>';
       html+='<div class="mc-away">'+aTr+(aTr!==m.away?'<div style="font-size:10px;color:var(--ink3);font-weight:400">'+m.away+'</div>':'')+'</div></div>';
@@ -1905,6 +1917,17 @@ function _renderPrematchList(){
   });
   html+='</div>';
   document.getElementById('prematch-list').innerHTML=html;
+}
+
+function filterPrematch(){
+  const filter=document.getElementById('pm-filter').value;
+  const all=window._allPrematchMatches||prematchMatches;
+  if(filter==='all'){
+    prematchMatches=all;
+  }else{
+    prematchMatches=all.filter(m=>m.quality===filter);
+  }
+  _renderPrematchList();
 }
 
 async function loadTennisMatchDetail(matchIndex){
