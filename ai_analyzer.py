@@ -2066,6 +2066,13 @@ def search_and_predict(home_name: str, away_name: str,
     if _cancelled():
         return None
 
+    # Data sufficiency report
+    _h_tid = home["id"] if home else None
+    _a_tid = away["id"] if away else None
+    sufficiency = _compute_data_sufficiency(home_en, away_en, _h_tid, _a_tid)
+    context_parts.append("")
+    context_parts.append("--- ДОСТАТОЧНОСТЬ ДАННЫХ ИЗ БД ---")
+    context_parts.append(sufficiency)
     context_text = "\n".join(context_parts) if context_parts else "Данные не найдены"
 
     if progress_cb:
