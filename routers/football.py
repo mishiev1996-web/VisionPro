@@ -294,22 +294,32 @@ def api_fs_live(limit: int = 100):
 
 # ── Pre-match endpoints ────────────────────────────────────────────────────────
 
+# Cache of all team names for fast quality check
+_team_name_set = None
+
+def _get_team_names():
+    global _team_name_set
+    if _team_name_set is None:
+        with db.connect() as conn:
+            rows = conn.execute("SELECT name FROM teams").fetchall()
+        _team_name_set = {r["name"].lower().strip() for r in rows}
+    return _team_name_set
+
 @router.get("/prematch/today")
 def api_prematch_today():
     try:
         from scrapers import sstats
         games = sstats.fetch_upcoming_all()
+        team_names = _get_team_names()
         matches = []
         for g in games:
             home = (g.get("homeTeam") or {}).get("name", "?")
             away = (g.get("awayTeam") or {}).get("name", "?")
             league = (g.get("season") or {}).get("league", {}).get("name", "?")
             league_ru = LEAGUE_NAME_MAP.get(league, league)
-            # Quality indicator
-            home_team = db.search_team_fuzzy(home, limit=1)
-            away_team = db.search_team_fuzzy(away, limit=1)
-            home_in_db = bool(home_team)
-            away_in_db = bool(away_team)
+            # Fast quality check via in-memory set
+            home_in_db = home.lower().strip() in team_names
+            away_in_db = away.lower().strip() in team_names
             if home_in_db and away_in_db:
                 quality = "ml"
             elif home_in_db or away_in_db:
