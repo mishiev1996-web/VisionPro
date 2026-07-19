@@ -11,6 +11,7 @@ import time
 import subprocess
 import datetime
 
+VENV_PYTHON = "/opt/VisionPro/venv/bin/python"
 LOG_DIR = "/opt/VisionPro/logs"
 LOG_FILE = os.path.join(LOG_DIR, "train.log")
 MODEL_PATH = "/opt/VisionPro/model.pkl"
@@ -38,7 +39,7 @@ if os.path.exists(MODEL_PATH):
 t0 = time.time()
 try:
     result = subprocess.run(
-        [sys.executable, "/opt/VisionPro/train.py"],
+        [VENV_PYTHON, "/opt/VisionPro/train.py"],
         cwd="/opt/VisionPro",
         capture_output=True,
         text=True,
