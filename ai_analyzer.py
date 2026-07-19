@@ -424,6 +424,31 @@ def _extract_extra_markets(sstats_data: dict) -> str:
     return "\n".join(lines)
 
 
+def _compute_data_sufficiency(home_en: str, away_en: str, home_id: int = None, away_id: int = None) -> str:
+    """Compute data sufficiency report for AI prompt. Returns a text block."""
+    lines = []
+    for label, name, tid in [("Хозяева", home_en, home_id), ("Гости", away_en, away_id)]:
+        if not tid:
+            lines.append(f"  {label} ({name}): team_id неизвестен — данные из БД недоступны")
+            continue
+        with db.connect() as conn:
+            total = conn.execute("SELECT COUNT(*) FROM matches WHERE is_result=1 AND (home_id=? OR away_id=?)", (tid, tid)).fetchone()[0]
+            recent = conn.execute("SELECT COUNT(*) FROM (SELECT * FROM matches WHERE is_result=1 AND (home_id=? OR away_id=?) ORDER BY date DESC LIMIT 10)", (tid, tid)).fetchone()[0]
+            try:
+                sstats = conn.execute("SELECT COUNT(DISTINCT game_id) FROM sstats_statistics WHERE team_id=?", (tid,)).fetchone()[0]
+            except Exception:
+                sstats = 0
+            try:
+                odds = conn.execute("SELECT COUNT(*) FROM match_odds WHERE home_id=? OR away_id=?", (tid, tid)).fetchone()[0]
+            except Exception:
+                odds = 0
+
+        quality = "достаточно" if recent >= 5 else ("мало" if recent >= 2 else "критически мало")
+        lines.append(f"  {label} ({name}): {total} матчей всего, {recent} последних, sstats={sstats}, odds={odds} — {quality}")
+
+    return "\n".join(lines)
+
+
 SYSTEM_PROMPT = """Ты — VisionPro, аналитик прогнозов. Обращаешься к пользователю по имени Залман.
 
 ТОН И ОБЩЕНИЕ:
@@ -437,6 +462,15 @@ SYSTEM_PROMPT = """Ты — VisionPro, аналитик прогнозов. Об
 Используй ТОЛЬКО статистику, форму и результаты из блока КОНТЕКСТ, переданного в запросе.
 Категорически запрещено выдумывать цифры, результаты матчей или статистику, которых нет в контексте.
 Если каких-то данных не хватает — прямо скажи, что их нет, вместо того чтобы придумывать.
+
+ДОСТАТОЧНОСТЬ ДАННЫХ:
+
+В контексте есть блок "ДОСТАТОЧНОСТЬ ДАННЫХ ИЗ БД" — он показывает, сколько исторических матчей есть в базе для каждой команды.
+ОБЯЗАТЕЛЬНО упомяни это пользователю в 1-2 предложениях:
+- Если обе команды имеют >=5 последних матчей: "Данных достаточно — N и N матчей в базе"
+- Если одна из команд <5 матчей: "Внимание: мало данных по команде X (только N матчей) — прогноз менее надёжен"
+- Если обе <5: "Данных критически мало — прогноз ориентировочный"
+Используй ТОЛЬКО цифры из блока, НЕ придумывай их самостоятельно.
 
 ЖЁСТКИЕ ПРАВИЛА:
 
@@ -489,6 +523,8 @@ PROB:home=X.XX:draw=X.XX:away=X.XX:bet=СТАВКА:confidence=УРОВЕНЬ"""
 LIVE_SYSTEM_PROMPT = """Ты — VisionPro, аналитик LIVE матчей. Обращаешься к пользователю по имени Залман. Тон — эмоциональный фанат на трибуне, с матом минимум 2-3 раза за ответ. Реагируй на голы, краски, тупые решения — всё через эмоции и нецензурную лексику. Строки ГЛАВНЫЙ ПРОГНОЗ / ТОТАЛ / BTTS / PROB — строго без мата, только факты.
 
 ИСТОЧНИК ДАННЫХ: только то, что передано в блоке КОНТЕКСТ (счёт, статистика live, xG). Не выдумывай события, которых там нет.
+
+ДОСТАТОЧНОСТЬ ДАННЫХ: В контексте есть блок "ДОСТАТОЧНОСТЬ ДАННЫХ ИЗ БД". ОБЯЗАТЕЛЬНО упомяни пользователю в 1-2 предложениях количество матчей в базе для каждой команды. Используй ТОЛЬКО цифры из блока, НЕ придумывай их.
 
 ЖЁСТКИЕ ПРАВИЛА ДЛЯ LIVE:
 
