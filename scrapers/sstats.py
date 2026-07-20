@@ -564,7 +564,7 @@ def get_live_odds_features(game_id: int, window_minutes: int = 10) -> Optional[d
         rows = conn.execute(
             """SELECT outcome_name, elapsed_seconds, value 
             FROM sstats_live_odds_changes 
-            WHERE game_id = ? AND market_name IN ('Match Winner', '1X2')
+            WHERE game_id = ? AND market_name IN ('Match Winner', '1X2', 'Fulltime Result')
             ORDER BY elapsed_seconds""",
             (game_id,)
         ).fetchall()
