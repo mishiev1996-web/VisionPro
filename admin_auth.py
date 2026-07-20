@@ -1,6 +1,7 @@
 """Add admin API key authentication"""
 import os
 import secrets
+from fastapi import Request, HTTPException
 
 # Load or generate admin key
 ADMIN_KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "admin_key.txt")
@@ -24,7 +25,6 @@ ADMIN_KEY = _get_admin_key()
 
 def verify_admin_key(request: Request):
     """FastAPI dependency: check X-Admin-Key header."""
-    from fastapi import HTTPException
     key = request.headers.get("X-Admin-Key", "")
     if key != ADMIN_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing X-Admin-Key header")
