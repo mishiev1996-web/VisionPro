@@ -488,3 +488,124 @@ def market_dispersion(odds_blocks: List[dict]) -> Optional[Dict[str, float]]:
         "draw_odds_var": round(_var(d_vals), 4),
         "away_odds_var": round(_var(a_vals), 4),
     }
+
+# ── Live odds changes (line movement) ────────────────────────────────────────
+
+def fetch_live_odds_changes(game_id: int) -> Optional[List[dict]]:
+    """Fetch live odds changes (line movement) for a game.
+    
+    Returns list of change records: {market_id, market_name, outcome_id,
+    outcome_name, elapsed_seconds, created_time, value}.
+    Only available for live/finished matches, NOT upcoming.
+    """
+    data = _fetch_one(f"/Odds/live-changes/{game_id}")
+    if not data or not isinstance(data.get("data"), list):
+        return None
+    
+    changes = []
+    now = __import__("datetime").datetime.now().isoformat(timespec="seconds")
+    
+    for market in data["data"]:
+        market_id = market.get("marketId")
+        market_name = market.get("marketName", "")
+        for outcome in market.get("outcomes", []):
+            outcome_id = outcome.get("outcomeId")
+            outcome_name = outcome.get("outcomeName", "")
+            for change in outcome.get("changes", []):
+                changes.append({
+                    "game_id": game_id,
+                    "market_id": market_id,
+                    "market_name": market_name,
+                    "outcome_id": outcome_id,
+                    "outcome_name": outcome_name,
+                    "elapsed_seconds": change.get("elapsedSeconds", 0),
+                    "created_time": change.get("createdTime", ""),
+                    "value": change.get("value"),
+                    "collected_at": now,
+                })
+    
+    return changes if changes else None
+
+
+def save_live_odds_changes(changes: List[dict]) -> int:
+    """Save live odds changes to DB (append-only, dedup via UNIQUE constraint)."""
+    if not changes:
+        return 0
+    import db
+    saved = 0
+    with db.connect() as conn:
+        for c in changes:
+            try:
+                conn.execute(
+                    """INSERT OR IGNORE INTO sstats_live_odds_changes 
+                    (game_id, market_id, market_name, outcome_id, outcome_name,
+                     elapsed_seconds, created_time, value, collected_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (c["game_id"], c["market_id"], c["market_name"],
+                     c["outcome_id"], c["outcome_name"], c["elapsed_seconds"],
+                     c["created_time"], c["value"], c["collected_at"])
+                )
+                saved += 1
+            except Exception:
+                pass
+    return saved
+
+
+def get_live_odds_features(game_id: int, window_minutes: int = 10) -> Optional[dict]:
+    """Compute line movement features for a live match.
+    
+    Returns dict with:
+    - odds_movement_1x2: dict with home/draw/away implied prob change over window
+    - odds_direction: 'up'/'down'/'stable' for main favorite
+    - odds_volatility: number of changes per minute
+    """
+    import db
+    with db.connect() as conn:
+        rows = conn.execute(
+            """SELECT outcome_name, elapsed_seconds, value 
+            FROM sstats_live_odds_changes 
+            WHERE game_id = ? AND market_name IN ('Match Winner', '1X2')
+            ORDER BY elapsed_seconds""",
+            (game_id,)
+        ).fetchall()
+    
+    if not rows or len(rows) < 6:
+        return None
+    
+    # Group by outcome
+    outcome_history = {}
+    for name, elapsed, value in rows:
+        if name not in outcome_history:
+            outcome_history[name] = []
+        outcome_history[name].append((elapsed, value))
+    
+    # Get latest and earliest values for each outcome
+    features = {}
+    for name in ["Home", "Draw", "Away"]:
+        history = outcome_history.get(name, [])
+        if len(history) >= 2:
+            latest_val = history[-1][1]
+            earliest_val = history[0][1]
+            # Convert odds to implied probability
+            latest_imp = 1.0 / latest_val if latest_val > 1 else 0.5
+            earliest_imp = 1.0 / earliest_val if earliest_val > 1 else 0.5
+            features[f"{name.lower()}_odds_change"] = round(latest_val - earliest_val, 3)
+            features[f"{name.lower()}_implied_change"] = round(latest_imp - earliest_imp, 3)
+    
+    # Direction: is favorite strengthening or weakening?
+    if "home_implied_change" in features:
+        home_change = features["home_implied_change"]
+        if home_change > 0.02:
+            features["odds_direction"] = "home_strengthening"
+        elif home_change < -0.02:
+            features["odds_direction"] = "home_weakening"
+        else:
+            features["odds_direction"] = "stable"
+    
+    # Volatility: changes per minute
+    total_changes = len(rows)
+    if rows:
+        total_minutes = max(1, (rows[-1][1] - rows[0][1]) / 60)
+        features["odds_volatility"] = round(total_changes / total_minutes, 2)
+    
+    return features if features else None

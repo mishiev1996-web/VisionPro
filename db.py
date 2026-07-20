@@ -208,6 +208,22 @@ CREATE TABLE IF NOT EXISTS sstats_odds (
 );
 CREATE INDEX IF NOT EXISTS idx_sstats_odds_game ON sstats_odds(game_id);
 
+-- SStats live odds changes (line movement during live matches)
+CREATE TABLE IF NOT EXISTS sstats_live_odds_changes (
+    game_id         INTEGER NOT NULL,
+    market_id       INTEGER,
+    market_name     TEXT,
+    outcome_id      INTEGER,
+    outcome_name    TEXT,
+    elapsed_seconds INTEGER,
+    created_time    TEXT,
+    value           REAL,
+    collected_at    TEXT NOT NULL,
+    UNIQUE(game_id, outcome_id, elapsed_seconds)
+);
+CREATE INDEX IF NOT EXISTS idx_live_odds_game ON sstats_live_odds_changes(game_id);
+CREATE INDEX IF NOT EXISTS idx_live_odds_outcome ON sstats_live_odds_changes(game_id, outcome_id);
+
 -- SStats game statistics (possession, shots, corners etc.)
 CREATE TABLE IF NOT EXISTS sstats_statistics (
     game_id     INTEGER NOT NULL,
