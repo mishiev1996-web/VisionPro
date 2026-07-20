@@ -100,7 +100,7 @@ button,.btn,.match-card,.card,.glass-card,.prob-item,.sport-btn,.theme-btn,.ac .
 .pane,.analysis-wrap,.ac,.del-box{scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
 
 /* Better focus states */
-.inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(16,185,129,.15);transition:all .3s var(--spring)}
+.inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(16,185,129,.2),0 0 12px rgba(16,185,129,.1);transition:all .3s var(--spring);outline:none}
 select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
 @keyframes heroUp{from{opacity:0;transform:translateY(34px) scale(.97);filter:blur(8px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
 @keyframes rise{from{opacity:0;transform:translateY(22px) scale(.98)}to{opacity:1;transform:none}}
@@ -192,7 +192,7 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 
 /* Match cards */
 .match-card{background:var(--card);border:1px solid var(--cardborder);border-radius:var(--card-radius);padding:var(--card-padding);margin-top:var(--card-margin);cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s var(--ease);animation:rise .7s var(--ease) both;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-.match-card:hover{border-color:rgba(var(--accent-rgb),.3);transform:translateY(-2px);box-shadow:0 4px 20px rgba(var(--accent-rgb),.15),0 2px 8px rgba(0,0,0,.12)}
+.match-card:hover{border-color:rgba(var(--accent-rgb),.3);transform:translateY(-3px) scale(1.01);box-shadow:0 8px 32px rgba(var(--accent-rgb),.18),0 4px 16px rgba(0,0,0,.15)}
 .match-card:active{transform:scale(.98)}
 .mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .mc-league{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
@@ -477,8 +477,8 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 /* ── 9. Skeleton shimmer ── */
 .skeleton-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;margin-top:10px;overflow:hidden}
 .skeleton-line{height:12px;border-radius:6px;background:var(--line);margin-bottom:10px;position:relative;overflow:hidden}
-.skeleton-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);animation:shimmer 1.5s infinite}
-@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skeleton-line::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),rgba(255,255,255,.02),transparent);animation:shimmer 2s cubic-bezier(.4,0,.6,1) infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}50%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
 .skeleton-bar{height:44px;border-radius:12px;background:var(--line);margin-bottom:10px;position:relative;overflow:hidden}
 .skeleton-bar::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);animation:shimmer 1.5s infinite}
 .skeleton-score{height:20px;width:60px;border-radius:8px;background:var(--line);margin:0 auto}
@@ -497,6 +497,22 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 /* Score draw glow */
 .score-glow-draw{color:var(--amber);text-shadow:0 0 12px rgba(255,214,10,.3)}
 .stop-btn{background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);color:var(--red);border-radius:980px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;font-family:inherit;transition:all .2s}.stop-btn:hover{background:rgba(255,69,58,.25);border-color:rgba(255,69,58,.5)}
+
+/* ── Reduced Motion Support ── */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+  .silkDrift,.silkDrift2{animation:none !important}
+  .golden-particles span{animation:none !important;display:none}
+}
+
+/* Stagger animation for list items */
+.stagger-item{opacity:0;transform:translateY(12px);animation:staggerIn .4s var(--ease) forwards}
+@keyframes staggerIn{to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
