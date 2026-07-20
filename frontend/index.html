@@ -117,10 +117,10 @@ header.scrolled{box-shadow:0 4px 24px rgba(var(--accent-rgb),.18),inset 0 -1px 0
 .htop{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .brand{display:flex;align-items:center;gap:11px}
 .brand-txt{display:flex;align-items:baseline;gap:7px}
-.brand-txt .o1{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.brand-txt .o1{font-size:19px;font-weight:500;letter-spacing:-.03em;color:var(--ink2)}
 .brand-txt .o2{font-size:19px;font-weight:700;letter-spacing:-.01em}
 @keyframes brandShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-.grad-text{background:linear-gradient(100deg,#d4af37,#f0d060,#d4af37);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:brandShimmer 3s linear infinite}
+.grad-text{background:linear-gradient(100deg,#d4af37 0%,#f0d060 25%,#d4af37 50%,#f0d060 75%,#d4af37 100%);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:brandShimmer 4s linear infinite}
 .theme-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--cardborder);background:var(--card2);color:var(--ink2);cursor:pointer;display:grid;place-items:center;font-size:15px;flex:none;transition:transform .3s var(--spring),color .2s,border-color .2s}
 .theme-btn:active{transform:scale(.9)}
 .theme-btn.on{color:var(--cyan);border-color:rgba(16,185,129,.4)}
@@ -155,8 +155,8 @@ nav.tabs button.active{color:var(--accent)}
 nav.tabs button.active svg{transform:scale(1.08) translateY(-1px)}
 
 /* Cards */
-.card{background:var(--surface);border:1px solid var(--cardborder);border-radius:var(--card-radius);box-shadow:var(--surfshadow);padding:var(--card-padding);margin-top:var(--card-margin);animation:rise .7s var(--ease) both;position:relative;transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
-.card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.card{background:var(--surface);border:1px solid var(--cardborder);border-radius:var(--card-radius);box-shadow:var(--surfshadow);padding:var(--card-padding);margin-top:var(--card-margin);animation:rise .7s var(--ease) both;position:relative;transition:transform .25s var(--ease),box-shadow .25s var(--ease);backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%)}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.2);border-color:rgba(var(--accent-rgb),.15)}
 .card-t{font-size:var(--font-small);font-weight:var(--font-w-normal);letter-spacing:-.01em;color:var(--ink2);text-transform:uppercase;margin:0 6px 2px}
 
 /* Error card — unified */
@@ -191,7 +191,7 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 .vs-divider{flex:none;width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--cardborder);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink3)}
 
 /* Match cards */
-.match-card{background:var(--card);border:1px solid var(--cardborder);border-radius:var(--card-radius);padding:var(--card-padding);margin-top:var(--card-margin);cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s var(--ease);animation:rise .7s var(--ease) both;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.match-card{background:var(--card);border:1px solid var(--cardborder);border-radius:var(--card-radius);padding:var(--card-padding);margin-top:var(--card-margin);cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s var(--ease);animation:rise .7s var(--ease) both;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .match-card:hover{border-color:rgba(var(--accent-rgb),.3);transform:translateY(-3px) scale(1.01);box-shadow:0 8px 32px rgba(var(--accent-rgb),.18),0 4px 16px rgba(0,0,0,.15)}
 .match-card:active{transform:scale(.98)}
 .mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -220,9 +220,9 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 
 /* Probability display */
 .prob-big{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:12px 0}
-.prob-item{text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);transition:all .3s var(--ease)}
+.prob-item{text-align:center;padding:16px 8px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);transition:all .3s var(--ease);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .prob-item .label{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);font-weight:600}
-.prob-item .value{font-size:22px;font-weight:700;font-family:ui-monospace,'SF Mono',monospace;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.prob-item .value{font-size:26px;font-weight:800;font-family:ui-monospace,'SF Mono',monospace;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .prob-item.best{border:1.5px solid;box-shadow:0 0 20px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.05)}
 .prob-item.best.home{border-color:var(--green);color:var(--green);background:rgba(48,209,88,.06)}
 .prob-item.best.draw{border-color:var(--amber);color:var(--amber);background:rgba(255,214,10,.06)}
@@ -243,7 +243,7 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 .analysis-toggle:active{opacity:.6}
 
 /* Scanner loading */
-.scan-card{background:rgba(255,255,255,.04);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
+.scan-card{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:saturate(200%) blur(30px);-webkit-backdrop-filter:saturate(200%) blur(30px);
   border:1px solid rgba(255,255,255,.08);border-radius:var(--card-radius);padding:30px 20px;margin-top:var(--card-margin);position:relative;overflow:hidden;
   box-shadow:0 8px 32px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.06);animation:rise .7s var(--ease) both}
 [data-theme="light"] .scan-card{background:rgba(255,255,255,.6);border-color:rgba(0,0,0,.06);box-shadow:0 8px 32px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.8)}
@@ -402,7 +402,7 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 /* ── 2. Animated nav indicator ── */
 nav.tabs{overflow:hidden}
 nav.tabs button{position:relative}
-nav.tabs button::after{content:"";position:absolute;top:0;left:50%;width:0;height:2px;background:var(--accent);border-radius:0 0 2px 2px;transition:left .35s var(--spring),width .35s var(--spring);transform:translateX(-50%)}
+nav.tabs button::after{content:"";position:absolute;top:0;left:50%;width:0;height:2.5px;background:linear-gradient(90deg,transparent,var(--accent),transparent);border-radius:0 0 2px 2px;transition:left .35s var(--spring),width .35s var(--spring);transform:translateX(-50%)}
 nav.tabs button.active::after{left:50%;width:40%}
 nav.tabs button:not(.active)::after{width:0;left:50%}
 
@@ -455,7 +455,7 @@ nav.tabs button:not(.active)::after{width:0;left:50%}
 .grad-divider{height:1px;background:linear-gradient(90deg,transparent,var(--cyan),var(--violet),transparent);opacity:.25;margin:12px 0;border:none}
 
 /* ── 5. Header enhanced blur ── */
-header{transition:box-shadow .3s var(--ease),background .3s var(--ease)}
+header{transition:box-shadow .3s var(--ease),background .3s var(--ease);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%)}
 header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 
 /* ── 6. Countdown ring ── */
