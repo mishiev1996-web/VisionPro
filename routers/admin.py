@@ -9,7 +9,7 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
 
 import db
@@ -18,6 +18,8 @@ import state as _state
 from state import JOB
 
 logger = logging.getLogger("router.admin")
+
+from admin_auth import verify_admin_key
 
 router = APIRouter(prefix="/api", tags=["admin"])
 
@@ -105,7 +107,7 @@ def api_feature_importance():
 # ── Data collection ──────────────────────────────────────────────────────────
 
 @router.post("/collect/start")
-def api_collect_start(mode: str = "understat", continuous: bool = False):
+def api_collect_start(mode: str = "understat", continuous: bool = False, _admin = Depends(verify_admin_key)):
     if JOB.is_actually_running():
         raise HTTPException(409, "Уже идёт другая задача — дождитесь окончания или нажмите Стоп")
     current = data_collector._current_season_year()
@@ -143,7 +145,7 @@ def api_collect_start(mode: str = "understat", continuous: bool = False):
 
 
 @router.post("/collect/stop")
-def api_collect_stop():
+def api_collect_stop(_admin = Depends(verify_admin_key)):
     if not JOB.is_actually_running():
         return {"ok": True, "msg": "Ничего не запущено"}
     JOB.cancel.set()
@@ -192,7 +194,7 @@ class PredictRequest(BaseModel):
 
 
 @router.post("/predict-with-refresh/start")
-def api_predict_refresh_start(body: PredictRequest):
+def api_predict_refresh_start(body: PredictRequest, _admin = Depends(verify_admin_key)):
     from helpers import predict_pair
     if JOB.is_actually_running():
         raise HTTPException(409, "Уже идёт другая задача — дождитесь окончания")
@@ -234,7 +236,7 @@ def api_predict_refresh_start(body: PredictRequest):
 # ── Model retrain ─────────────────────────────────────────────────────────────
 
 @router.post("/train")
-def api_train():
+def api_train(_admin = Depends(verify_admin_key)):
     if JOB.is_actually_running():
         raise HTTPException(409, "Идёт сбор данных — сначала дождитесь его окончания")
     import train
@@ -256,7 +258,7 @@ def api_backtest(seasons: int = 3):
 
 
 @router.post("/backtest/start")
-def api_backtest_start(seasons: int = 3):
+def api_backtest_start(seasons: int = 3, _admin = Depends(verify_admin_key)):
     if JOB.is_actually_running():
         raise HTTPException(409, "Уже идёт другая задача — дождитесь окончания")
     JOB.reset("backtest")
