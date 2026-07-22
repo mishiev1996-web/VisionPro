@@ -1511,11 +1511,11 @@ def _resolve_team_name(name: str) -> str:
     if all(ord(c) < 128 for c in name.strip()):
         return name.strip()
 
-    # 5. Use LLM to resolve
+    # 5. Use LLM to resolve (short timeout — this is just name translation)
     resolved = _chat([
         {"role": "system", "content": "Ты помощник. Верни ТОЛЬКО английское название команды/сборной. Никакого текста, только название на английском."},
         {"role": "user", "content": f"Как называется эта команда по-английски: {name}"}
-    ], temperature=0, max_tokens=50)
+    ], temperature=0, max_tokens=50, timeout=5, max_retries=1)
     if resolved:
         en_name = resolved.strip().strip('"').strip("'")
         # Cache the translation
@@ -1540,6 +1540,12 @@ def _search_sstats_team(team_name: str, progress_cb=None,
         progress_cb({"type": "info", "msg": f"  Поиск «{team_name}» через sstats API..."})
 
     matches = sstats.search_team_by_name(team_name, limit=20)
+
+    # Phase 1b: If not found, try transliterated name (Cyrillic → Latin)
+    if not matches:
+        en_name = _transliterate_ru_to_en(team_name)
+        if en_name != team_name:
+            matches = sstats.search_team_by_name(en_name, limit=20)
     if matches:
         # Found matches - extract team info
         team_id = None

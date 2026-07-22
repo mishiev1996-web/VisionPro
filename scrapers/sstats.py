@@ -244,9 +244,9 @@ def search_team_by_name(team_name: str, limit: int = 5) -> List[dict]:
     headers = {"apikey": SSTATS_KEY, "Content-Type": "application/json",
                "User-Agent": "Mozilla/5.0 (Football-AI)"}
     try:
-        r = _requests.post(f"{SSTATS_BASE}/Games/query", 
+        r = _requests.post(f"{SSTATS_BASE}/Games/query",
                           headers=headers,
-                          json=body, timeout=20)
+                          json=body, timeout=10)
         if r.status_code == 200:
             return (r.json() or {}).get("data") or []
     except Exception:
@@ -270,8 +270,7 @@ def fetch_last_games_stats(game_id: int, limit: int = 25,
     """Pre-match averaged statistics for both teams over their last N games.
 
     Returns dict with 'home' and 'away' keys, each containing:
-    - avg goals scored/conceded
-    - avg xG and xG against
+    - avg goals scored/conceded (avgScore, avgConceded)
     - avg shots, corners, cards
     - form (W/D/L counts)
     - avg odds (home/draw/away)
@@ -284,7 +283,8 @@ def fetch_last_games_stats(game_id: int, limit: int = 25,
     if home_away:
         params += "&homeAway=true"
     data = _fetch_one(f"/Games/last-games-stats?{params}")
-    return (data or {}).get("data")
+    # API returns data directly, not under 'data' key
+    return data
 
 
 @cached_sstats()
@@ -460,6 +460,44 @@ def consensus_over_under(odds_blocks: List[dict]) -> Optional[Dict[str, Dict[str
         }
 
     return result if result else None
+
+
+def consensus_btts(odds_blocks: List[dict]) -> Optional[Dict[str, float]]:
+    """Compute BTTS (Both Teams To Score) implied probabilities from bookmaker consensus.
+
+    Returns dict like {"yes": 0.65, "no": 0.35, "avg_yes_odds": 1.54, ...}
+    or None if no BTTS data found.
+    """
+    if not odds_blocks:
+        return None
+    yes_vals, no_vals = [], []
+    for bm in odds_blocks:
+        for m in (bm.get("odds") or []):
+            if m.get("marketName") != "Both Teams Score":
+                continue
+            for o in (m.get("odds") or []):
+                name = (o.get("name") or "").strip().lower()
+                v = o.get("value")
+                if v is None or v <= 1.0:
+                    continue
+                if name == "yes":
+                    yes_vals.append(float(v))
+                elif name == "no":
+                    no_vals.append(float(v))
+    if not yes_vals or not no_vals:
+        return None
+    avg_yes = sum(yes_vals) / len(yes_vals)
+    avg_no = sum(no_vals) / len(no_vals)
+    inv_yes = 1 / avg_yes
+    inv_no = 1 / avg_no
+    s = inv_yes + inv_no
+    return {
+        "yes": round(inv_yes / s, 4),
+        "no": round(inv_no / s, 4),
+        "avg_yes_odds": round(avg_yes, 3),
+        "avg_no_odds": round(avg_no, 3),
+        "bookmaker_count": max(len(yes_vals), len(no_vals)),
+    }
 
 
 def market_dispersion(odds_blocks: List[dict]) -> Optional[Dict[str, float]]:
