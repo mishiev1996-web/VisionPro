@@ -236,6 +236,15 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 
 /* Analysis collapsible */
 .analysis-wrap{position:relative;max-height:260px;overflow:hidden;transition:max-height .5s var(--ease)}
+
+/* Chat widget */
+.chat-msg{padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;max-width:85%;word-wrap:break-word;white-space:pre-wrap}
+.chat-user{align-self:flex-end;background:linear-gradient(135deg,rgba(0,210,255,.15),rgba(139,92,246,.15));border:1px solid rgba(255,255,255,.08);color:var(--ink)}
+.chat-ai{align-self:flex-start;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);color:var(--ink)}
+.chat-system{max-width:100%;background:none;border:none;padding:8px 4px}
+.chat-loading{align-self:flex-start;color:var(--ink3);font-size:13px;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.chat-teams{font-size:12px;color:var(--cyan);padding:4px 14px;align-self:flex-start;display:flex;gap:6px;flex-wrap:wrap}
+.chat-teams span{background:rgba(0,210,255,.1);border:1px solid rgba(0,210,255,.2);border-radius:6px;padding:2px 8px}
 .analysis-wrap.expanded{max-height:none}
 .analysis-wrap::after{content:"";position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(transparent,var(--surface));pointer-events:none;transition:opacity .3s}
 .analysis-wrap.expanded::after{opacity:0}
@@ -301,6 +310,23 @@ label.fld{display:block;font-size:var(--font-small);font-weight:var(--font-w-nor
 .del-box .actions .btn{flex:1}
 .del-box .btn-cancel{background:var(--card2);border:1px solid var(--cardborder);color:var(--ink)}
 .del-box .btn-del{background:var(--red);color:#fff}
+
+/* Admin login */
+.admin-overlay{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:sheetFade .25s var(--ease) both}
+.admin-overlay.open{display:flex}
+.admin-box{background:var(--card);border:1px solid var(--cardborder);border-radius:var(--card-radius);padding:28px 24px;width:calc(100% - 48px);max-width:340px;animation:up .4s var(--spring)}
+.admin-box h3{font-size:18px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:4px}
+.admin-box .sub{font-size:13px;color:var(--ink2);text-align:center;margin-bottom:20px}
+.admin-box .field{margin-bottom:14px}
+.admin-box .field label{display:block;font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.admin-box .field input{width:100%;padding:12px 14px;background:var(--inpbg);border:1px solid var(--cardborder);border-radius:12px;color:var(--ink);font-size:15px;font-family:inherit;outline:none;transition:border-color .2s}
+.admin-box .field input:focus{border-color:var(--accent)}
+.admin-box .err{font-size:12px;color:var(--red);text-align:center;margin-bottom:10px;display:none}
+.admin-box .err.show{display:block}
+.admin-box .btn-login{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#b8941f);color:#000;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-family:inherit;letter-spacing:-.01em;margin-top:4px}
+.admin-box .btn-login:active{transform:scale(.97);opacity:.9}
+.admin-box .btn-close{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--ink3);font-size:20px;cursor:pointer;padding:4px}
+.admin-box-wrap{position:relative}
 
 /* Autocomplete */
 .search-wrap{position:relative}
@@ -519,6 +545,24 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 <div class="golden-particles" id="goldenParticles"></div>
 <div class="offline-banner" id="offline-banner">Нет подключения к интернету</div>
 
+<!-- Admin login modal -->
+<div class="admin-overlay" id="admin-overlay">
+  <div class="admin-box admin-box-wrap">
+    <h3>VisionPro Admin</h3>
+    <p class="sub">Введите логин и пароль</p>
+    <div class="err" id="admin-err">Неверный логин или пароль</div>
+    <div class="field">
+      <label>Логин</label>
+      <input type="text" id="admin-login" placeholder="zalman" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input type="password" id="admin-pass" placeholder="•••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doAdminLogin()">Войти</button>
+  </div>
+</div>
+
 <div class="wrap">
   <header>
     <div class="htop">
@@ -546,6 +590,7 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
             <button class="voice-option" data-voice="shimmer" onclick="selectVoice('shimmer')">Shimmer — мягкий</button>
           </div>
         </div>
+        <button class="theme-btn" id="admin-btn" onclick="openAdminLogin()" title="Вход в админку"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></button>
         <button class="theme-btn" onclick="toggleTheme()" title="Сменить тему"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>
       </div>
     </div>
@@ -555,41 +600,33 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
   <div id="pane-analysis">
     <div class="hero">
       <h1 class="hero-title">Найди свой<br>прогноз.</h1>
-      <p class="hero-sub">Назови две команды — VisionPro подготовит разбор.</p>
-      <div class="voice-btn-wrap">
-        <button class="voice-btn" id="voice-btn" title="Зажми и говори">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <p class="hero-sub">Напиши свободно — VisionPro подберёт команды и даст разбор.</p>
+    </div>
+
+    <!-- ═══ CHAT "Чат ИИ" (sole input) ═══ -->
+    <div id="chat-card" style="padding:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span style="font-size:14px;font-weight:600;color:var(--ink)">Чат ИИ</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <label class="fld" style="font-size:12px;color:var(--ink2);white-space:nowrap">Модель ИИ</label>
+        <select id="ai-model" class="inp" style="font-size:13px;cursor:pointer;flex:1;padding:6px 8px"></select>
+      </div>
+      <div id="chat-messages" style="height:380px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;padding:4px">
+        <div class="chat-msg chat-system" style="font-size:12px;color:var(--ink3);text-align:center;padding:12px;line-height:1.6">
+          Привет, Залман! Напиши матча — например: «Левски София — Университата Крайова»<br>
+          Или спроси свободно: «прогноз на 1 тайм Спартак ЦСКА», «кто забьёт следующим?»
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="chat-voice-btn" id="chat-voice-btn" title="Голосовой ввод" style="background:none;border:1px solid var(--line);border-radius:10px;width:40px;height:40px;cursor:pointer;display:grid;place-items:center;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
         </button>
-        <p class="voice-hint" id="voice-hint">Зажми и скажи свободно, например: «Арсенал против Челси»</p>
+        <input class="inp" id="chat-input" placeholder="Напиши запрос..." style="flex:1;font-size:14px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}">
+        <button class="chat-send-btn" id="chat-send-btn" onclick="sendChat()" style="background:linear-gradient(135deg,var(--cyan),var(--violet));border:none;border-radius:10px;width:40px;height:40px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;color:#fff;font-size:18px">→</button>
+        <button id="chat-clear-btn" onclick="clearChat()" title="Очистить чат" style="background:none;border:1px solid var(--line);border-radius:10px;width:40px;height:40px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;color:var(--ink3);font-size:16px">🗑</button>
       </div>
-    </div>
-
-    <div class="glass-card" id="ai-input-card">
-      <div class="fgrp"><label class="fld">Модель ИИ</label>
-        <select id="ai-model" class="inp" style="font-size:14px;cursor:pointer"></select>
-      </div>
-      <div class="vs-row">
-        <div style="flex:1"><label class="fld" id="ai-home-label">Хозяева</label>
-          <div class="search-wrap"><input class="inp" id="ai-home" placeholder="Arsenal" autocomplete="off"><div class="team-crest" id="crest-home"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg></div><div class="ac" id="ac-home"></div></div>
-        </div>
-        <div class="vs-divider">VS</div>
-        <div style="flex:1"><label class="fld" id="ai-away-label">Гости</label>
-          <div class="search-wrap"><input class="inp" id="ai-away" placeholder="Chelsea" autocomplete="off"><div class="team-crest" id="crest-away"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg></div><div class="ac" id="ac-away"></div></div>
-        </div>
-      </div>
-      <button class="btn wide" id="ai-btn" disabled style="margin-top:16px">Получить прогноз</button>
-    </div>
-
-    <div class="scan-card hide" id="ai-loading">
-      <div class="sonar"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="dot"></div></div>
-      <div class="scan-title">VISION<span style="background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent">PRO</span></div>
-      <div class="scan-sub" id="ai-load-msg">Поиск команд...</div>
-      <div class="scan-bar"><span id="ai-bar"></span></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px">
-        <span style="font-size:11px;color:var(--ink3)" id="ai-pct">0%</span>
-        <span style="font-size:11px;color:var(--ink3)" id="ai-step">Этап 1/4</span>
-      </div>
-      <button class="stop-btn" onclick="stopAllProcesses()">Стоп</button>
     </div>
 
     <div id="ai-result"></div>
@@ -609,9 +646,9 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
         </div>
         <div class="fgrp" style="flex:1"><label class="fld">Фильтр</label>
           <select id="pm-filter" class="inp" style="font-size:14px;cursor:pointer" onchange="filterPrematch()">
-            <option value="all">Все матчи</option>
-            <option value="ml">ML прогноз (полный)</option>
+            <option value="ml" selected>ML прогноз (полный)</option>
             <option value="partial">Частичные данные</option>
+            <option value="all">Все матчи</option>
             <option value="none">Только коэффициенты</option>
           </select>
         </div>
@@ -634,8 +671,16 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
     </div>
 
     <div class="card" style="margin-top:var(--card-margin)">
-      <div class="fgrp"><label class="fld">Модель ИИ</label>
-        <select id="live-model" class="inp" style="font-size:14px;cursor:pointer"></select>
+      <div style="display:flex;gap:8px">
+        <div class="fgrp" style="flex:1"><label class="fld">Модель ИИ</label>
+          <select id="live-model" class="inp" style="font-size:14px;cursor:pointer"></select>
+        </div>
+        <div class="fgrp" style="flex:1"><label class="fld">Фильтр</label>
+          <select id="live-filter" class="inp" style="font-size:14px;cursor:pointer" onchange="filterLive()">
+            <option value="all" selected>Все live матчи</option>
+            <option value="full">С xG данными</option>
+          </select>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
         <input type="checkbox" id="live-auto-refresh" checked>
@@ -786,6 +831,115 @@ header.scrolled{box-shadow:0 1px 0 var(--sheetline),0 4px 20px rgba(0,0,0,.15)}
 <script>
 "use strict";
 
+// ── Admin Auth (server-side) ──
+function isAdminLoggedIn(){
+  return !!localStorage.getItem('vp_admin_token');
+}
+
+function getAdminToken(){
+  return localStorage.getItem('vp_admin_token')||'';
+}
+
+function openAdminLogin(){
+  if(isAdminLoggedIn()){
+    if(confirm('Выйти из админки?')){
+      localStorage.removeItem('vp_admin_token');
+      updateAdminBtn();
+      showToast('Вы вышли');
+    }
+    return;
+  }
+  document.getElementById('admin-overlay').classList.add('open');
+  document.getElementById('admin-login').value='';
+  document.getElementById('admin-pass').value='';
+  document.getElementById('admin-err').classList.remove('show');
+  setTimeout(()=>document.getElementById('admin-login').focus(),100);
+}
+
+function closeAdminLogin(){
+  document.getElementById('admin-overlay').classList.remove('open');
+}
+
+async function doAdminLogin(){
+  const username=document.getElementById('admin-login').value.trim();
+  const password=document.getElementById('admin-pass').value;
+  
+  if(!username||!password){
+    document.getElementById('admin-err').textContent='Введите логин и пароль';
+    document.getElementById('admin-err').classList.add('show');
+    return;
+  }
+  
+  try{
+    const r=await fetch('/api/admin/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})
+    });
+    
+    if(r.ok){
+      const data=await r.json();
+      localStorage.setItem('vp_admin_token',data.token);
+      closeAdminLogin();
+      updateAdminBtn();
+      showToast('Добро пожаловать, '+username);
+    }else{
+      document.getElementById('admin-err').textContent='Неверный логин или пароль';
+      document.getElementById('admin-err').classList.add('show');
+    }
+  }catch(e){
+    document.getElementById('admin-err').textContent='Ошибка подключения';
+    document.getElementById('admin-err').classList.add('show');
+  }
+}
+
+function updateAdminBtn(){
+  const btn=document.getElementById('admin-btn');
+  if(isAdminLoggedIn()){
+    btn.style.color='var(--accent)';
+    btn.title='Админка (вошёл) • нажми чтобы выйти';
+  }else{
+    btn.style.color='';
+    btn.title='Вход в админку';
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('admin-overlay').addEventListener('click',function(e){
+  if(e.target===this)closeAdminLogin();
+});
+
+// Close modal on Escape
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape')closeAdminLogin();
+});
+
+// Enter key submits login
+document.getElementById('admin-pass').addEventListener('keydown',function(e){
+  if(e.key==='Enter')doAdminLogin();
+});
+document.getElementById('admin-login').addEventListener('keydown',function(e){
+  if(e.key==='Enter')document.getElementById('admin-pass').focus();
+});
+
+// Wrapper: adds Authorization header if logged in
+async function adminFetch(url,opts={}){
+  if(isAdminLoggedIn()){
+    if(!opts.headers)opts.headers={};
+    opts.headers['Authorization']='Bearer '+getAdminToken();
+  }
+  const r=await fetch(url,opts);
+  if(r.status===401){
+    localStorage.removeItem('vp_admin_token');
+    showToast('Сессия истекла, войдите снова');
+    openAdminLogin();
+    throw new Error('Unauthorized');
+  }
+  return r;
+}
+
+updateAdminBtn();
+
 // ── Voice Menu & TTS ──
 let _selectedVoice=localStorage.getItem('vp_voice')||'onyx';
 // Highlight active voice on load
@@ -808,7 +962,7 @@ function selectVoice(voice){
 
 async function speak(text){
   try{
-    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await adminFetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:text,voice:_selectedVoice})});
     if(!r.ok)return;
     const data=await r.json();
@@ -948,36 +1102,13 @@ function switchSport(sport){
   document.querySelectorAll('.sport-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.sport===sport);
   });
-  if(sport==='tennis'){
-    document.getElementById('ai-home').placeholder='Sinner';
-    document.getElementById('ai-away').placeholder='Alcaraz';
-    document.querySelector('.hero-sub').textContent='Назови двух теннисистов — VisionPro подготовит разбор.';
-    document.getElementById('ai-home-label').textContent='Игрок 1';
-    document.getElementById('ai-away-label').textContent='Игрок 2';
-  }else{
-    document.getElementById('ai-home').placeholder='Arsenal';
-    document.getElementById('ai-away').placeholder='Chelsea';
-    document.querySelector('.hero-sub').textContent='Назови две команды — VisionPro подготовит разбор.';
-    document.getElementById('ai-home-label').textContent='Хозяева';
-    document.getElementById('ai-away-label').textContent='Гости';
-  }
   document.getElementById('ai-result').innerHTML='';
-  document.getElementById('ai-home').value='';
-  document.getElementById('ai-away').value='';
-  document.getElementById('ai-btn').disabled=true;
 }
 
 (function(){
   document.querySelectorAll('.sport-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.sport===currentSport);
   });
-  if(currentSport==='tennis'){
-    document.getElementById('ai-home').placeholder='Sinner';
-    document.getElementById('ai-away').placeholder='Alcaraz';
-    document.querySelector('.hero-sub').textContent='Назови двух теннисистов — VisionPro подготовит разбор.';
-    document.getElementById('ai-home-label').textContent='Игрок 1';
-    document.getElementById('ai-away-label').textContent='Игрок 2';
-  }
 })();
 
 // ── Header scroll shadow ──
@@ -1038,7 +1169,7 @@ function closeDepositModal(e){if(!e||e.target===e.currentTarget)document.getElem
 async function confirmDeposit(){
   const amount=parseFloat(document.getElementById('deposit-amount').value);
   if(!amount||amount<=0)return;
-  await fetch('/api/bankroll/transaction',{method:'POST',headers:{'Content-Type':'application/json'},
+  await adminFetch('/api/bankroll/transaction',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({type:'deposit',amount:amount,description:'Пополнение'})});
   document.getElementById('deposit-amount').value='';
   closeDepositModal();
@@ -1066,7 +1197,7 @@ async function saveKellySettings(){
   const max=parseFloat(document.getElementById('br-max-pct').value);
   const min=parseFloat(document.getElementById('br-min-odds').value);
   const frac=parseFloat(document.getElementById('br-kelly-frac').value);
-  await fetch('/api/bankroll/settings',{method:'POST',headers:{'Content-Type':'application/json'},
+  await adminFetch('/api/bankroll/settings',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({max_bet_pct:max,min_odds:min,kelly_fraction:frac})});
   showToast('Настройки сохранены');
 }
@@ -1134,60 +1265,14 @@ function getLiveModel(){
   return sel?sel.value:aiDefaultModel;
 }
 
-// ── AI Analysis ──
-const aiHome=document.getElementById('ai-home');
-const aiAway=document.getElementById('ai-away');
-
-[aiHome,aiAway].forEach((inp,idx)=>{
-  let _debounceTimer=null;
-  inp.addEventListener('input',()=>{
-    clearTimeout(_debounceTimer);
-    _debounceTimer=setTimeout(async()=>{
-      const v=inp.value.trim();
-      const ac=document.getElementById(idx===0?'ac-home':'ac-away');
-      if(v.length<2){ac.classList.remove('open');return}
-      try{
-        const endpoint=currentSport==='tennis'?'/api/tennis/search?q=':'/api/ai/search-db?q=';
-        const r=await fetch(endpoint+encodeURIComponent(v));
-        const data=await r.json();
-        const results=data.results||data.players||[];
-        if(!results.length){ac.classList.remove('open');return}
-        const acNames=results.map(t=>t.name||'');
-        await trBatch(acNames);
-        const items=currentSport==='tennis'
-          ?results.map(t=>{
-            const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
-            return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.country||'')+'</span></div>';
-          }).join('')
-          :results.map(t=>{
-            const n=t.name||'';const trn=_trCache[n.trim().toLowerCase()];
-            return '<div class="item" onclick="selectAiTeam('+idx+',\''+n.replace(/'/g,"\\'")+'\')">'+n+(trn&&trn!==n?'<span class="lg">'+trn+'</span>':'')+'<span class="lg">'+(t.league_slug||'')+'</span></div>';
-          }).join('');
-        ac.innerHTML=items;
-        ac.classList.add('open');
-      }catch(e){}
-    },300);
-  });
-  inp.addEventListener('focus',()=>{document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open')});
-});
-
-function selectAiTeam(idx,name){
-  [aiHome,aiAway][idx].value=name;
-  document.getElementById(idx===0?'ac-home':'ac-away').classList.remove('open');
-  document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value);
-}
-
-aiHome.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value)});
-aiAway.addEventListener('input',()=>{document.getElementById('ai-btn').disabled=!(aiHome.value&&aiAway.value)});
-
-document.getElementById('ai-btn').addEventListener('click',runAnalysis);
+// ── AI Analysis (legacy two-field form removed — chat is sole input) ──
 
 let _analysisSSE=null;
 let _tennisAbortController=null;
 
 function stopAllProcesses(){
   // 1. Tell backend to cancel
-  fetch("/api/collect/stop",{method:"POST"}).catch(()=>{});
+  adminFetch("/api/collect/stop",{method:"POST"}).catch(()=>{});
   // 2. Close football SSE
   if(_analysisSSE){try{_analysisSSE.close()}catch(e){}_analysisSSE=null}
   // 3. Close prematch SSE
@@ -1196,143 +1281,19 @@ function stopAllProcesses(){
   if(typeof _aiRetryTimer!=="undefined"&&_aiRetryTimer){clearTimeout(_aiRetryTimer);_aiRetryTimer=null}
   // 5. Abort tennis fetch
   if(_tennisAbortController){try{_tennisAbortController.abort()}catch(e){}_tennisAbortController=null}
-  // 6. Hide loading indicators
-  var aiL=document.getElementById("ai-loading");if(aiL)aiL.classList.add("hide");
+  // 6. Hide prematch loading
   var pmL=document.getElementById("pm-ai-loading");if(pmL)pmL.style.display="none";
-  // 7. Re-enable buttons
-  var aiBtn=document.getElementById("ai-btn");if(aiBtn)aiBtn.disabled=false;
+  // 7. Re-enable prematch button
   var pmBtn=document.getElementById("pm-ai-btn");if(pmBtn)pmBtn.disabled=false;
   // 8. Toast
   showToast("Анализ отменён");
 }
 
 function _setAnalysisProgress(pct,msg,step){
-  const bar=document.getElementById('ai-bar');
-  const pctEl=document.getElementById('ai-pct');
-  const msgEl=document.getElementById('ai-load-msg');
-  const stepEl=document.getElementById('ai-step');
-  if(bar)bar.style.width=pct+'%';
-  if(pctEl)pctEl.textContent=pct+'%';
-  if(msgEl)msgEl.textContent=msg;
-  if(stepEl)stepEl.textContent=step;
+  // Progress tracking for analysis (chat-based, no visible progress bar)
 }
 
-async function runAnalysis(){
-  const home=aiHome.value.trim();
-  const away=aiAway.value.trim();
-  if(!home||!away)return;
-
-  document.getElementById('ai-loading').classList.remove('hide');
-  document.getElementById('ai-result').innerHTML='';
-  document.getElementById('ai-btn').disabled=true;
-
-  _setAnalysisProgress(5,'Поиск команд...','Этап 1/4');
-
-  // Tennis path: still uses synchronous fetch (no SSE endpoint)
-  if(currentSport==='tennis'){
-    try{
-      const params=new URLSearchParams({player1:home,player2:away,model:getSelectedModel()});
-      _tennisAbortController=new AbortController();
-      const timeoutId=setTimeout(()=>_tennisAbortController&&_tennisAbortController.abort(),120000);
-      const r=await fetch('/api/tennis/ai-and-predict?'+params.toString(),{signal:_tennisAbortController.signal});
-      clearTimeout(timeoutId);_tennisAbortController=null;
-      _setAnalysisProgress(100,'Готово!','Этап 4/4');
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      const data=await r.json();
-      setTimeout(()=>renderAnalysisResult(data),300);
-    }catch(e){
-      let errorMsg=e.message;
-      if(errorMsg.includes('abort')||errorMsg.includes('timeout'))errorMsg='Превышен таймаут. Попробуйте позже.';
-      document.getElementById('ai-result').innerHTML='<div class="error-card" style="margin-top:16px">Ошибка: '+errorMsg+'</div>';
-    }
-    document.getElementById('ai-loading').classList.add('hide');
-    document.getElementById('ai-btn').disabled=false;
-    return;
-  }
-
-  // Football: SSE-based progress via /api/ai/search-and-predict/start + /api/collect/stream
-  try{
-    // 1. Start async analysis job
-    const startR=await fetch('/api/ai/search-and-predict/start',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({home_name:home,away_name:away,model:getSelectedModel()})
-    });
-    if(startR.status===409){
-      _setAnalysisProgress(0,'Выполняется другой запрос, ожидание...','');
-      document.getElementById('ai-loading').classList.add('hide');
-      document.getElementById('ai-btn').disabled=false;
-      document.getElementById('ai-result').innerHTML='<div class="card" style="border:1px solid rgba(255,214,10,.2);margin-top:16px"><div style="color:var(--amber);padding:8px 0;font-size:14px">Сервер занят другим анализом. Подождите завершения и попробуйте снова.</div></div>';
-      return;
-    }
-    if(!startR.ok)throw new Error('HTTP '+startR.status);
-
-    // 2. Connect to SSE stream for real progress
-    _setAnalysisProgress(10,'Запуск анализа...','Этап 1/4');
-    const result=await new Promise((resolve,reject)=>{
-      const timeout=setTimeout(()=>{es.close();reject(new Error('timeout'))},300000);
-      let progressPct=10;
-      let step='Этап 1/4';
-      const es=new EventSource('/api/collect/stream?since=0');
-      _analysisSSE=es;
-      es.onmessage=(e)=>{
-        try{
-          const ev=JSON.parse(e.data);
-          if(ev.type==='info'&&ev.msg){
-            // Map real backend messages to progress stages
-            const msg=ev.msg.toLowerCase();
-            if(msg.includes('распозн')||msg.includes('команд')){progressPct=15;step='Этап 1/4'}
-            else if(msg.includes('поиск')||msg.includes('sstats')){progressPct=30;step='Этап 1/4'}
-            else if(msg.includes('данные')||msg.includes('загруж')){progressPct=45;step='Этап 2/4'}
-            else if(msg.includes('ml')||msg.includes('модел')||msg.includes('прогноз')){progressPct=60;step='Этап 2/4'}
-            else if(msg.includes('ai')||msg.includes('анализ')){progressPct=80;step='Этап 3/4'}
-            else{progressPct=Math.min(progressPct+5,85)}
-            _setAnalysisProgress(Math.round(progressPct),ev.msg,step);
-          }
-          if(ev.type==='result'&&ev.prediction){
-            es.close();clearTimeout(timeout);_analysisSSE=null;
-            _setAnalysisProgress(100,'Готово!','Этап 4/4');
-            resolve(ev.prediction);
-          }
-          if(ev.type==='error'){
-            es.close();clearTimeout(timeout);_analysisSSE=null;
-            reject(new Error(ev.msg||'Ошибка анализа'));
-          }
-          if(ev.type==='done'){
-            es.close();clearTimeout(timeout);_analysisSSE=null;
-            // Try to get result from status endpoint
-            fetch('/api/collect/status').then(r=>r.json()).then(st=>{
-              if(st.result)resolve(st.result);
-              else reject(new Error('Результат не получен'));
-            }).catch(reject);
-          }
-        }catch(pe){}
-      };
-      es.onerror=()=>{es.close();_analysisSSE=null;clearTimeout(timeout);reject(new Error('SSE connection lost'))};
-    });
-
-    setTimeout(()=>{
-      renderAnalysisResult(result);
-      if(_voiceTriggered){
-        _voiceTriggered=false;
-        const summary=generateVoiceSummary(result);
-        if(summary){
-          const vh=document.getElementById('voice-hint');
-          if(vh){vh.textContent='Озвучиваю...';vh.style.color='#d4af37';vh.classList.add('active')}
-          speak(summary);
-        }
-      }
-    },300);
-  }catch(e){
-    _voiceTriggered=false;
-    let errorMsg=e.message;
-    if(errorMsg==='timeout')errorMsg='Превышен таймаут (5 мин). Попробуйте позже.';
-    else if(errorMsg==='SSE connection lost')errorMsg='Соединение прервано. Проверьте интернет.';
-    document.getElementById('ai-result').innerHTML='<div class="error-card" style="margin-top:16px">Ошибка: '+errorMsg+'</div>';
-  }
-  document.getElementById('ai-loading').classList.add('hide');
-  document.getElementById('ai-btn').disabled=false;
-}
+// ── runAnalysis() removed — chat is the sole input (sendChat → /api/chat) ──
 
 // ── Unified probability renderer ──
 function renderProbabilities(homeProb,drawProb,awayProb,opts={}){
@@ -1482,7 +1443,7 @@ function closeDeleteModal(e){
 }
 document.getElementById('del-confirm-btn').addEventListener('click',async()=>{
   if(!_pendingDeleteId)return;
-  try{await fetch('/api/predictions/'+_pendingDeleteId,{method:'DELETE'})}catch(e){}
+  try{await adminFetch('/api/predictions/'+_pendingDeleteId,{method:'DELETE'})}catch(e){}
   closeDeleteModal();
   loadPredictions();
 });
@@ -1604,225 +1565,8 @@ function translateBet(t){
   return m[tl]||t;
 }
 
-// ── Voice Input (hold to record) ──
-let _voiceRecognition=null;
-let _voiceListening=false;
-let _voiceTriggered=false; // true if analysis was triggered by voice → speak result
-
-// Init hold-to-record on voice button
-document.addEventListener('DOMContentLoaded',()=>{
-  const btn=document.getElementById('voice-btn');
-  if(!btn)return;
-
-  // Mouse
-  btn.addEventListener('mousedown',(e)=>{e.preventDefault();startVoiceInput()});
-  btn.addEventListener('mouseup',()=>stopVoiceInput());
-  btn.addEventListener('mouseleave',()=>{if(_voiceListening)stopVoiceInput()});
-
-  // Touch
-  btn.addEventListener('touchstart',(e)=>{e.preventDefault();startVoiceInput()},{passive:false});
-  btn.addEventListener('touchend',()=>stopVoiceInput());
-  btn.addEventListener('touchcancel',()=>{if(_voiceListening)stopVoiceInput()});
-});
-
-function startVoiceInput(){
-  const btn=document.getElementById('voice-btn');
-  const hint=document.getElementById('voice-hint');
-  const card=document.getElementById('ai-input-card');
-
-  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
-    hint.textContent='Голосовой ввод не поддерживается в этом браузере';
-    hint.style.color='#ff3b30';
-    return;
-  }
-
-  if(_voiceListening)return;
-
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  _voiceRecognition=new SpeechRecognition();
-  _voiceRecognition.lang='ru-RU';
-  _voiceRecognition.interimResults=true;
-  _voiceRecognition.maxAlternatives=3;
-  _voiceRecognition.continuous=true;
-
-  _voiceRecognition.onstart=()=>{
-    _voiceListening=true;
-    btn.classList.add('listening');
-    hint.textContent='Держи и говори...';
-    hint.classList.add('active');
-    // Hide input card, show listening state
-    if(card)card.style.display='none';
-  };
-
-  _voiceRecognition.onresult=(e)=>{
-    let transcript='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      transcript=e.results[i][0].transcript;
-    }
-    hint.textContent=transcript||'Слушаю...';
-
-    if(e.results[e.results.length-1].isFinal){
-      parseVoiceInput(transcript);
-    }
-  };
-
-  _voiceRecognition.onerror=(e)=>{
-    _voiceListening=false;
-    btn.classList.remove('listening');
-    hint.classList.remove('active');
-    if(e.error==='no-speech')hint.textContent='Речь не распознана, попробуйте ещё раз';
-    else if(e.error==='not-allowed')hint.textContent='Разрешите доступ к микрофону';
-    else hint.textContent='Ошибка: '+e.error;
-  };
-
-  _voiceRecognition.onend=()=>{
-    _voiceListening=false;
-    btn.classList.remove('listening');
-    setTimeout(()=>{hint.classList.remove('active');hint.textContent='Зажми и скажи свободно, например: «Арсенал против Челси»'},3000);
-  };
-
-  _voiceRecognition.start();
-}
-
-function stopVoiceInput(){
-  if(_voiceRecognition&&_voiceListening){
-    _voiceRecognition.stop();
-  }
-}
-
-function parseVoiceInput(text){
-  const hint=document.getElementById('voice-hint');
-  const original=text.trim();
-  text=original.toLowerCase();
-
-  // ── 1. Detect INTENT ──
-  let intent='predict'; // default
-  if(/когда\s+(игра[юут]|начнёт|начнется|будет)/.test(text)|/расписани[ея]/.test(text))intent='schedule';
-  else if(/что\s+(происходит|идёт|играет)/.test(text)|/статус|live|лайв/.test(text))intent='live_status';
-  else if(/погод[ау]/.test(text))intent='weather';
-  else if(/таблиц[ауы]|турнир/.test(text))intent='standings';
-
-  // ── 2. Detect MATCH TYPE ──
-  let matchType='full'; // default
-  if(/перв[а-яы]*\s*тайм|1\s*тайм|first\s*half|1st/.test(text))matchType='first_half';
-  else if(/втор[а-яы]*\s*тайм|2\s*тайм|second\s*half|2nd/.test(text))matchType='second_half';
-
-  // ── 3. Detect TIME CONTEXT ──
-  let timeContext='auto'; // auto = let backend decide
-  if(/сейчас|прямо\s+сейчас|live|лайв|идёт/.test(text))timeContext='live';
-  else if(/сегодня/.test(text))timeContext='today';
-  else if(/завтра/.test(text))timeContext='tomorrow';
-
-  // ── 4. Extract TEAM NAMES ──
-  // Strip intent phrases and filler words
-  let cleaned=text
-    .replace(/виж[её]н|вижион|визион/gi,'')
-    .replace(/прогноз|прогнозируй|прогноз на/gi,'')
-    .replace(/дай|скажи|назови|покажи|проанализируй/gi,'')
-    .replace(/матч|игру|игру|ставк[уи]|на матч/gi,'')
-    .replace(/как сыграют|как играют|кто победит/gi,'')
-    .replace(/перв[а-яы]*\s*тайм|1\s*тайм|втор[а-яы]*\s*тайм|2\s*тайм/gi,'')
-    .replace(/первого|второго/gi,'')
-    .replace(/на\s+/gi,'')
-    .replace(/сегодня|завтра|сейчас/gi,'')
-    .trim();
-
-  // Try separators: против, vs, versus, playing, and "и" between names
-  const separators=['против','vs','versus','playing'];
-  let parts=null;
-
-  for(const sep of separators){
-    const idx=cleaned.indexOf(sep);
-    if(idx>0){
-      parts=[cleaned.substring(0,idx).trim(),cleaned.substring(idx+sep.length).trim()];
-      break;
-    }
-  }
-
-  // Try dash: "испания - аргентина" but not "1 - 0"
-  if(!parts){
-    const dashMatch=cleaned.match(/^(.+?)\s*[-—]\s*(.+)$/);
-    if(dashMatch&&isNaN(dashMatch[1])&&isNaN(dashMatch[2])){
-      parts=[dashMatch[1].trim(),dashMatch[2].trim()];
-    }
-  }
-
-  // Try "и": "испания и аргентина"
-  if(!parts){
-    const andMatch=cleaned.match(/^(.+?)\s+и\s+(.+)$/);
-    if(andMatch)parts=[andMatch[1].trim(),andMatch[2].trim()];
-  }
-
-  // Try "на": "испания на аргентину"
-  if(!parts){
-    const naMatch=cleaned.match(/^(.+?)\s+на\s+(.+)$/);
-    if(naMatch)parts=[naMatch[1].trim(),naMatch[2].trim()];
-  }
-
-  // Two remaining words = likely team names
-  if(!parts){
-    const words=cleaned.split(/\s+/).filter(w=>w.length>1);
-    if(words.length===2)parts=[words[0],words[1]];
-  }
-
-  // Fallback: split remaining text in half
-  if(!parts){
-    const words=cleaned.split(/\s+/).filter(w=>w.length>1);
-    if(words.length>=2){
-      const mid=Math.ceil(words.length/2);
-      parts=[words.slice(0,mid).join(' '),words.slice(mid).join(' ')];
-    }
-  }
-
-  // ── 5. ROUTE based on intent ──
-  if(intent==='live_status'){
-    hint.textContent='Ищу live матчи...';
-    hint.style.color='var(--cyan)';
-    switchPane('live');
-    return;
-  }
-  if(intent==='schedule'){
-    hint.textContent='Ищу расписание...';
-    hint.style.color='var(--cyan)';
-    switchPane('prematch');
-    return;
-  }
-  if(intent==='standings'){
-    hint.textContent='Показываю турнирную таблицу...';
-    hint.style.color='var(--cyan)';
-    // No standings pane yet — fallback to prematch
-    switchPane('prematch');
-    return;
-  }
-
-  // ── 6. Need team names for predict/weather ──
-  if(!parts||!parts[0]||!parts[1]||parts[0].length<2||parts[1].length<2){
-    hint.textContent='Не распознал команды. Скажи: «Арсенал против Челси»';
-    hint.style.color='var(--red)';
-    return;
-  }
-
-  const home=parts[0].charAt(0).toUpperCase()+parts[0].slice(1);
-  const away=parts[1].charAt(0).toUpperCase()+parts[1].slice(1);
-
-  // Store match context for post-analysis response
-  window._voiceMatchType=matchType;
-  window._voiceTimeContext=timeContext;
-
-  document.getElementById('ai-home').value=home;
-  document.getElementById('ai-away').value=away;
-  document.getElementById('ai-btn').disabled=false;
-
-  // Show what we understood
-  let understood=home+' vs '+away;
-  if(matchType==='first_half')understood+=' (1-й тайм)';
-  else if(matchType==='second_half')understood+=' (2-й тайм)';
-  hint.textContent=understood;
-  hint.style.color='#d4af37';
-
-  _voiceTriggered=true;
-  setTimeout(()=>runAnalysis(),500);
-}
+// ── Voice Input (hold to record) — removed, chat uses its own voice button ──
+let _voiceTriggered=false;
 
 function savePrediction(){
   const data=window._lastAnalysis;
@@ -1848,7 +1592,7 @@ function savePrediction(){
   if(window._currentLiveGameId)predictionType='live';
   else if(window._currentPrematchGameId)predictionType='prematch';
 
-  fetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+  adminFetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       home_name:data.home?.name||data.home,
       away_name:data.away?.name||data.away,
@@ -1886,8 +1630,19 @@ async function loadTodayMatches(){
     window._allPrematchMatches=data.matches||[];
     document.getElementById('prematch-loading').style.display='none';
 
+    // Apply default filter (exclude quality='none' by default)
+    const filter=document.getElementById('pm-filter').value;
+    if(filter!=='all'){
+      prematchMatches=prematchMatches.filter(m=>m.quality===filter);
+    }
+
     if(!prematchMatches.length){
-      document.getElementById('prematch-list').innerHTML=emptyState('Матчей на сегодня не найдено');
+      const allCount=window._allPrematchMatches.length;
+      if(allCount>0&&filter!=='all'){
+        document.getElementById('prematch-list').innerHTML=emptyState('Нет матчей с фильтром "'+filter+'". Всего матчей: '+allCount);
+      }else{
+        document.getElementById('prematch-list').innerHTML=emptyState('Матчей на сегодня не найдено');
+      }
       return;
     }
 
@@ -2025,49 +1780,23 @@ async function loadLiveMatches(){
   try{
     const r=await fetch('/api/prematch/live');
     const data=await r.json();
-    liveMatches=data.matches||[];
+    _allLiveMatches=data.matches||[];
     document.getElementById('live-loading').style.display='none';
+
+    // Apply filter
+    const filter=document.getElementById('live-filter').value;
+    if(filter!=='all'){
+      liveMatches=_allLiveMatches.filter(m=>m.quality===filter);
+    }else{
+      liveMatches=_allLiveMatches;
+    }
 
     // Pre-translate team names
     const liveNames=[];
     liveMatches.forEach(m=>{liveNames.push(m.home,m.away)});
     await trBatch(liveNames);
 
-    if(!liveMatches.length){
-      document.getElementById('live-list').innerHTML=emptyState('Нет live матчей');
-      return;
-    }
-
-    let html='<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:14px">Live матчи ('+liveMatches.length+')</div>';
-    liveMatches.forEach((m,i)=>{
-      if(i>0)html+='<div class="grad-divider"></div>';
-      const score=m.score||'vs';
-      const statusColor=m.status==='Second Half'?'var(--amber)':m.status==='First Half'?'var(--green)':'var(--ink2)';
-      const dotClass=m.status==='Second Half'?'amber':'green';
-      const minute=m.minute||m.elapsed||'';
-      let scoreHtml=score;
-      if(score&&score.includes(':')){
-        const parts=score.split(':').map(s=>parseInt(s.trim()));
-        if(parts.length===2&&!isNaN(parts[0])&&!isNaN(parts[1])){
-          if(parts[0]>parts[1])scoreHtml='<span class="score-glow-home">'+score+'</span>';
-          else if(parts[1]>parts[0])scoreHtml='<span class="score-glow-away">'+score+'</span>';
-          else scoreHtml='<span class="score-glow-draw">'+score+'</span>';
-        }
-      }
-      html+='<div class="mc" onclick="loadLiveDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
-      html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
-      html+='<span>'+(m.league_ru||m.league||'')+'</span>';
-      html+='<span style="color:'+statusColor+';font-weight:700"><span class="live-dot '+dotClass+'"></span>'+m.status+(minute?' · '+minute+"'":'')+'</span></div>';
-      const lHTr=_trCache[(m.home||'').trim().toLowerCase()]||m.home_ru||m.home;
-      const lATr=_trCache[(m.away||'').trim().toLowerCase()]||m.away_ru||m.away;
-      html+='<div class="mc-teams"><div class="mc-home">'+lHTr+'</div>';
-      html+='<div class="mc-score live-score">'+scoreHtml+'</div>';
-      html+='<div class="mc-away">'+lATr+'</div></div>';
-      if(m.xg){html+='<div style="text-align:center;font-size:11px;color:var(--ink3);margin-top:8px">'+m.xg+'</div>'}
-      html+='</div>';
-    });
-    html+='</div>';
-    document.getElementById('live-list').innerHTML=html;
+    _renderLiveList();
     setupAutoRefresh();
     _markLiveUpdated();
   }catch(e){
@@ -2078,6 +1807,62 @@ async function loadLiveMatches(){
       document.getElementById('live-list').innerHTML='<div class="error-card">Ошибка: '+e.message+'</div>';
     }
   }
+}
+
+let _allLiveMatches=[];
+function filterLive(){
+  const filter=document.getElementById('live-filter').value;
+  const all=_allLiveMatches||liveMatches;
+  if(filter==='all'){
+    liveMatches=all;
+  }else{
+    liveMatches=all.filter(m=>m.quality===filter);
+  }
+  _renderLiveList();
+}
+
+function _renderLiveList(){
+  if(!liveMatches.length){
+    const allCount=_allLiveMatches.length;
+    if(allCount>0){
+      document.getElementById('live-list').innerHTML=emptyState('Нет матчей с xG данными. Всего live: '+allCount);
+    }else{
+      document.getElementById('live-list').innerHTML=emptyState('Нет live матчей. Матчи появятся когда начнутся.');
+    }
+    return;
+  }
+
+  let html='<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:14px">Live матчи ('+liveMatches.length+')</div>';
+  liveMatches.forEach((m,i)=>{
+    if(i>0)html+='<div class="grad-divider"></div>';
+    const score=m.score||'vs';
+    const statusColor=m.status==='Second Half'?'var(--amber)':m.status==='First Half'?'var(--green)':'var(--ink2)';
+    const dotClass=m.status==='Second Half'?'amber':'green';
+    const minute=m.minute||m.elapsed||'';
+    let scoreHtml=score;
+    if(score&&score.includes(':')){
+      const parts=score.split(':').map(s=>parseInt(s.trim()));
+      if(parts.length===2&&!isNaN(parts[0])&&!isNaN(parts[1])){
+        if(parts[0]>parts[1])scoreHtml='<span class="score-glow-home">'+score+'</span>';
+        else if(parts[1]>parts[0])scoreHtml='<span class="score-glow-away">'+score+'</span>';
+        else scoreHtml='<span class="score-glow-draw">'+score+'</span>';
+      }
+    }
+    const qualityBadge=m.quality==='full'?'<span style="background:rgba(48,209,88,.15);color:var(--green);padding:2px 6px;border-radius:6px;font-size:9px;font-weight:600;margin-left:6px">xG</span>':'';
+    html+='<div class="mc" onclick="loadLiveDetail('+m.game_id+')" style="padding:14px 0;border-bottom:1px solid var(--sheetline);cursor:pointer">';
+    html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-bottom:8px">';
+    html+='<span>'+(m.league_ru||m.league||'')+'</span>';
+    html+='<span style="color:'+statusColor+';font-weight:700"><span class="live-dot '+dotClass+'"></span>'+m.status+(minute?' · '+minute+"'":'')+'</span></div>';
+    const lHTr=_trCache[(m.home||'').trim().toLowerCase()]||m.home_ru||m.home;
+    const lATr=_trCache[(m.away||'').trim().toLowerCase()]||m.away_ru||m.away;
+    html+='<div class="mc-teams"><div class="mc-home">'+lHTr+qualityBadge+'</div>';
+    html+='<div class="mc-score live-score">'+scoreHtml+'</div>';
+    html+='<div class="mc-away">'+lATr+'</div></div>';
+    if(m.xg){html+='<div style="text-align:center;font-size:11px;color:var(--ink3);margin-top:8px">'+m.xg+'</div>'}
+    html+='</div>';
+  });
+  html+='</div>';
+  document.getElementById('live-list').innerHTML=html;
 }
 
 function setupAutoRefresh(){
@@ -2201,7 +1986,7 @@ function saveLivePrediction(){
     awayWin=data.consensus.implied_away*100;
   }
 
-  fetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+  adminFetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       home_name:data.home,
       away_name:data.away,
@@ -2528,7 +2313,7 @@ async function runPrematchAI(gameId){
     setP(10,'Запуск анализа...');
     const pmModel=document.getElementById('pm-model');
     const modelParam=pmModel?'?model='+encodeURIComponent(pmModel.value):'';
-    const r=await fetch('/api/prematch/'+gameId+'/analyze'+modelParam,{method:'POST'});
+    const r=await adminFetch('/api/prematch/'+gameId+'/analyze'+modelParam,{method:'POST'});
     const data=await r.json();
     if(!data.ok){
       throw new Error(data.detail||'Ошибка запуска');
@@ -2646,7 +2431,7 @@ function savePrematchPrediction(){
 
   const modelUsed=data.model_used||window._currentPrematchModel||getSelectedModel();
 
-  fetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
+  adminFetch('/api/predictions/save',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       home_name:data.home?.name||data.home,
       away_name:data.away?.name||data.away,
@@ -2790,6 +2575,222 @@ function _markLiveUpdated(){
 }
 
 loadModels();
+
+// ── Chat widget ──────────────────────────────────────────────────────
+const CHAT_STORAGE_KEY = 'vp_chat_history';
+const CHAT_MSGS_KEY = 'vp_chat_messages';
+
+function initChat() {
+  // Restore history from localStorage
+  try {
+    const saved = localStorage.getItem(CHAT_MSGS_KEY);
+    if (saved) {
+      const msgs = JSON.parse(saved);
+      const el = document.getElementById('chat-messages');
+      if (el && msgs && msgs.length) {
+        el.innerHTML = '';
+        msgs.forEach(m => {
+          if (m && m.role && m.content) addChatMsg(m.role, m.content, false);
+        });
+      }
+    }
+  } catch(e) {
+    console.warn('Chat init error:', e);
+  }
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  addChatMsg('user', msg);
+  saveChatHistory();
+
+  // Show loading with progress steps
+  const loading = document.createElement('div');
+  loading.className = 'chat-loading';
+  loading.id = 'chat-loading-' + Date.now();
+  loading.innerHTML = '<div class="spinner" style="width:14px;height:14px"></div><span id="chat-loading-text">Парсю запрос...</span>';
+  document.getElementById('chat-messages').appendChild(loading);
+  scrollChat();
+
+  // Progress steps animation
+  const steps = ['Парсю запрос...', 'Ищу команды в базе...', 'Считаю прогноз...', 'Генерирую анализ...'];
+  let stepIdx = 0;
+  const stepTimer = setInterval(() => {
+    stepIdx = Math.min(stepIdx + 1, steps.length - 1);
+    const el = document.getElementById('chat-loading-text');
+    if (el) el.textContent = steps[stepIdx];
+  }, 2500);
+
+  // Timeout warning after 30s
+  const timeoutWarning = setTimeout(() => {
+    const el = document.getElementById('chat-loading-text');
+    if (el) el.textContent = 'Почти готово, ещё немного...';
+  }, 30000);
+
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg})
+  })
+  .then(r => r.json())
+  .then(data => {
+    clearInterval(stepTimer);
+    clearTimeout(timeoutWarning);
+    const loadEl = document.getElementById(loading.id);
+    if (loadEl) loadEl.remove();
+
+    if (data.type === 'suggestions' && data.suggestions && data.suggestions.length) {
+      // Show suggestion buttons
+      addChatMsg('ai', data.reply);
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:0 8px';
+      data.suggestions.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'chat-suggestion-btn';
+        btn.style.cssText = 'background:rgba(0,210,255,.1);border:1px solid rgba(0,210,255,.2);border-radius:8px;padding:6px 12px;color:var(--cyan);font-size:13px;cursor:pointer;font-family:inherit';
+        btn.textContent = s.name + (s.league ? ' (' + s.league + ')' : '');
+        btn.onclick = () => {
+          wrap.remove();
+          document.getElementById('chat-input').value = s.name;
+          sendChat();
+        };
+        wrap.appendChild(btn);
+      });
+      document.getElementById('chat-messages').appendChild(wrap);
+    } else if (data.type === 'match_list' && data.matches) {
+      addChatMsg('ai', data.reply);
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:0 8px';
+      data.matches.forEach(m => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'background:rgba(0,210,255,.08);border:1px solid rgba(0,210,255,.15);border-radius:8px;padding:8px 12px;color:var(--ink);font-size:13px;cursor:pointer;text-align:left;font-family:inherit';
+        btn.textContent = m.home + ' — ' + m.away + (m.league ? ' (' + m.league + ')' : '');
+        btn.onclick = () => {
+          wrap.remove();
+          document.getElementById('chat-input').value = m.home + ' — ' + m.away;
+          sendChat();
+        };
+        wrap.appendChild(btn);
+      });
+      document.getElementById('chat-messages').appendChild(wrap);
+    } else if (data.type === 'analysis') {
+      // Show teams badge first
+      if (data.teams) {
+        const badge = document.createElement('div');
+        badge.className = 'chat-teams';
+        badge.innerHTML = '<span>' + escapeHtml(data.teams.home) + '</span> VS <span>' + escapeHtml(data.teams.away) + '</span>';
+        document.getElementById('chat-messages').appendChild(badge);
+      }
+      // Show prediction summary
+      if (data.prediction) {
+        const p = data.prediction;
+        const summary = document.createElement('div');
+        summary.className = 'chat-msg chat-ai';
+        summary.innerHTML = '<strong>' + (p.home_win || 0).toFixed(0) + '% — ' + (p.draw || 0).toFixed(0) + '% — ' + (p.away_win || 0).toFixed(0) + '%</strong>';
+        document.getElementById('chat-messages').appendChild(summary);
+      }
+      // Show full analysis
+      let reply = (data.reply || '').replace(/PROB:.*$/gm, '').trim();
+      if (reply) addChatMsg('ai', reply);
+    } else {
+      addChatMsg('ai', data.reply || 'Нет ответа');
+    }
+
+    scrollChat();
+    saveChatHistory();
+  })
+  .catch(err => {
+    clearInterval(stepTimer);
+    clearTimeout(timeoutWarning);
+    const loadEl = document.getElementById(loading.id);
+    if (loadEl) loadEl.remove();
+    addChatMsg('ai', 'Ошибка: ' + err.message);
+  });
+}
+
+function addChatMsg(role, text, save = true) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg chat-' + (role === 'user' ? 'user' : 'ai');
+  div.textContent = text;
+  document.getElementById('chat-messages').appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() {
+  const el = document.getElementById('chat-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearChat() {
+  const el = document.getElementById('chat-messages');
+  el.innerHTML = '<div class="chat-msg chat-system" style="font-size:12px;color:var(--ink3);text-align:center;padding:12px;line-height:1.6">Привет, Залман! Напиши матча — например: «Левски София — Университата Крайова»<br>Или спроси свободно: «прогноз на 1 тайм Спартак ЦСКА», «кто забьёт следующим?»</div>';
+  localStorage.removeItem(CHAT_MSGS_KEY);
+}
+
+function saveChatHistory() {
+  const el = document.getElementById('chat-messages');
+  const msgs = [];
+  el.querySelectorAll('.chat-msg').forEach(m => {
+    if (m.classList.contains('chat-system')) return;
+    msgs.push({role: m.classList.contains('chat-user') ? 'user' : 'ai', content: m.textContent});
+  });
+  localStorage.setItem(CHAT_MSGS_KEY, JSON.stringify(msgs.slice(-30)));
+}
+
+// Voice integration for chat
+(function initChatVoice() {
+  const btn = document.getElementById('chat-voice-btn');
+  const input = document.getElementById('chat-input');
+  if (!btn || !input) return;
+
+  let recognition = null;
+  let listening = false;
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.lang = 'ru-RU';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      input.value = text;
+      sendChat();
+    };
+    recognition.onend = () => {
+      listening = false;
+      btn.style.borderColor = 'var(--line)';
+      btn.style.color = 'currentColor';
+    };
+    recognition.onerror = () => {
+      listening = false;
+      btn.style.borderColor = 'var(--line)';
+      btn.style.color = 'currentColor';
+    };
+  }
+
+  btn.addEventListener('click', () => {
+    if (!recognition) {
+      addChatMsg('ai', 'Голосовой ввод не поддерживается в этом браузере. Попробуй Chrome.');
+      return;
+    }
+    if (listening) {
+      recognition.stop();
+    } else {
+      listening = true;
+      btn.style.borderColor = 'var(--cyan)';
+      btn.style.color = 'var(--cyan)';
+      recognition.start();
+    }
+  });
+})();
+
+initChat();
 </script>
 </body>
 </html>
